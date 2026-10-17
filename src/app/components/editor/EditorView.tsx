@@ -53,12 +53,15 @@ export function EditorView({
   mode,
   onMode,
   onOpen,
+  onClose,
 }: {
   doc: EditorDoc;
   provider: LlmProvider | string;
   mode: AiMode;
   onMode: (m: AiMode) => void;
   onOpen: (doc: EditorDoc) => void;
+  /** Closes the design; the editor goes back to its empty start. */
+  onClose: () => void;
 }) {
   const { platform, session, playset } = useApp();
   // Inherited parts (`parent = …`) are copied in, so the editor shows and exports the full design.
@@ -78,6 +81,11 @@ export function EditorView({
   const [words, setWords] = useState(doc.words ?? '');
   const [libraryId, setLibraryId] = useState(doc.libraryId);
   const dragging = useRef(false);
+  // Unsaved changes: anything that differs from the design as opened or last saved.
+  const current = JSON.stringify({ coa, name, words });
+  const [savedState, setSavedState] = useState(current);
+  const dirty = current !== savedState;
+  const [confirmClose, setConfirmClose] = useState(false);
 
   // Opening another design replaces the editor contents.
   useEffect(() => {
@@ -88,6 +96,8 @@ export function EditorView({
     setLayerIdx(0);
     setInstIdx(0);
     setPicker(undefined);
+    setSavedState(JSON.stringify({ coa: editable(doc.coa), name: doc.name, words: doc.words ?? '' }));
+    setConfirmClose(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc]);
 
@@ -178,6 +188,7 @@ export function EditorView({
       createdAt: asNew || !doc.createdAt ? new Date().toISOString() : doc.createdAt,
     });
     setLibraryId(id);
+    setSavedState(current);
   }
 
   const scale = inst?.scale ?? [1, 1];
@@ -266,11 +277,40 @@ export function EditorView({
             labels={{ idle: 'Copy for game', busy: 'Copying…', done: 'Copied – paste it in the game' }}
             action={() => copyText(exportScript())}
           />
-          {libraryId && (
-            <div>
+          <div className="row" style={{ gap: 8 }}>
+            {libraryId && (
               <ActionButton className="ghost small" action={() => save(true)} labels={{ idle: 'Save as new', busy: 'Saving…', done: 'Saved as new' }} />
-            </div>
-          )}
+            )}
+            <span className="spacer" />
+            <ActionButton
+              key="save-close"
+              className="small"
+              action={async () => {
+                await save(false);
+                onClose();
+              }}
+              labels={{ idle: 'Save and close', busy: 'Saving…', done: 'Saved' }}
+            />
+            {confirmClose ? (
+              <>
+                <button key="really-close" className="confirm small" onClick={onClose}>
+                  Discard changes
+                </button>
+                <button key="keep" className="ghost small" onClick={() => setConfirmClose(false)}>
+                  Keep editing
+                </button>
+              </>
+            ) : (
+              <button
+                key="close"
+                className="ghost small"
+                onClick={() => (dirty ? setConfirmClose(true) : onClose())}
+                title={dirty ? 'You have unsaved changes' : 'Close this design'}
+              >
+                Close
+              </button>
+            )}
+          </div>
         </div>
         {extras.length > 0 && (
           <p className="small faint">This design also has {extras.join(' and ')}; {extras.length > 1 || /s$/.test(String(extras[0])) ? 'they are' : 'it is'} kept but cannot be edited here.</p>

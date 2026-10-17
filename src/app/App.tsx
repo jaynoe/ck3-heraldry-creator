@@ -286,7 +286,7 @@ export function App({ platform }: { platform: Platform }) {
             {/* Kept mounted so unsaved edits survive switching tabs. */}
             <div hidden={tab !== 'editor'}>
               {editorDoc ? (
-                <EditorView doc={editorDoc} provider={provider} mode={aiMode} onMode={setAiMode} onOpen={openEditor} />
+                <EditorView doc={editorDoc} provider={provider} mode={aiMode} onMode={setAiMode} onOpen={openEditor} onClose={() => setEditorDoc(undefined)} />
               ) : (
                 <div className="editor-empty">
                   <div className="empty">

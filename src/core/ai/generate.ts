@@ -142,6 +142,14 @@ const WORDS_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Asks for directions of different richness, so a set always has a classic option and more detailed ones. */
+const variety = (variants: number) =>
+  variants === 1
+    ? 'Give the direction a main charge plus one story detail drawn from the idea (a "secondary" motif), on a plain or divided field.'
+    : `Make the directions differ in richness: direction 1 is classic and simple (one bold charge or ordinary on a plain or divided field).
+  The others are more detailed: a field division, chief, canton or bordure, plus a story detail drawn from the idea as a "secondary" motif
+  (something from the house's history, trade, seat or founder). Every detail still has to read at small size.`;
+
 const MOTIF_HINT = `For each direction, list tinctures in plain words and motifs with search keywords.
   Emblems are found by keyword search over file names such as "ce_wolf_passant", "ce_bend_wavy", "ce_ship_longship", "ce_greyjoy".
   Use simple English nouns (wolf, heron, tower, wave, bend, chevron, cross, bordure, star …) and, where the motif is a canonical house sigil,
@@ -211,7 +219,7 @@ Return:
 - region: the best matching region id
 - names: ${variants + 2} name options (without "House"), each with a one-sentence meaning
 - words: ${variants + 2} options for the house words
-- directions: ${variants} clearly different design directions. ${MOTIF_HINT}${
+- directions: ${variants} clearly different design directions. ${variety(variants)} ${MOTIF_HINT}${
     options.name ? `\n\nThe player already chose the name "${options.name}": make it the first name option (with its meaning) and add alternatives.` : ''
   }${options.words ? `\nThe player already chose the words "${options.words}": make them the first words option and add alternatives.` : ''}`;
   const concept = (await provider.generateJson({ label: 'concept', system: SYSTEM, prompt: conceptPrompt, schema: CONCEPT_SCHEMA })) as Concept;
@@ -311,7 +319,7 @@ export async function newDesigns(
 The user did not like these designs:
 ${c.previous.map((d) => `- ${d.title}: ${d.blazon}`).join('\n')}
 
-Return ${variants} NEW design directions that are clearly different from those and from each other. ${MOTIF_HINT}`,
+Return ${variants} NEW design directions that are clearly different from those and from each other. ${variety(variants)} ${MOTIF_HINT}`,
   })) as { directions: Direction[] };
   return composeDesigns(provider, catalog, { ...c, variants, directions: r.directions });
 }
