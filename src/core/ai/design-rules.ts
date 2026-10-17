@@ -68,6 +68,9 @@ You create houses that feel native to Westeros and Essos: names, house words and
 - Arms stay readable at small size, but they should not be bare: good arms tell the house's story. Besides the main charge, add a meaningful detail
   where it fits (a broken chain for a house founded by a freed slave, a key for gatekeepers, a sheaf for a granary town), and use field divisions,
   chiefs, cantons, bordures and secondary charges. Up to four emblem layers; the main charge stays clearly the largest.
+- In game, arms are often shown only 40–60 px wide. A detail must be at least about a quarter of the shield wide (scale ≥ 0.25)
+  or fill a whole chief, canton or bordure; anything smaller disappears, so leave it out instead.
+- Contrast also applies to neighbouring parts of the field: two dark colours (e.g. purple and blue) or two light ones side by side look dull.
 - Respect the rule of tincture where sensible: avoid light charges on light fields and dark on dark.
 - Do not copy the arms of a canonical great house.`;
 

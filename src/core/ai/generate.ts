@@ -433,7 +433,8 @@ Image 3 shows your rendered drafts 1–${designs.length}, as they will look in g
 ${designs.map((d, i) => `${i + 1}. ${d.title}: ${JSON.stringify(d.spec)}`).join('\n')}
 
 Review each draft critically against its blazon and the rules: Is the main charge visible and not covered?
-Do the emblems look like what was intended? Is the contrast good? Is anything misplaced, cut off or empty?
+Do the emblems look like what was intended? Is the contrast good, also between neighbouring parts of the field? Is anything misplaced, cut off or empty?
+Imagine each draft 50 px wide: enlarge any detail that would vanish at that size, or remove it.
 Watch for thin seam lines across the field: emblems that reach the shield border must stay full size and centred.
 Return all ${designs.length} designs in order — unchanged if they are good, otherwise fixed — with a short note each.`,
     })) as { designs: unknown[]; notes: string[] };
