@@ -447,6 +447,14 @@ select {
   border-radius: 0;
   outline: none;
 }
+/* Native checkboxes in the accent colour, so a set tick is easy to see on the dark theme. */
+input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
 select {
   height: 40px;
