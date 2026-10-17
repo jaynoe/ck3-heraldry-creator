@@ -36,6 +36,7 @@ The AI effort setting (Economy / Normal / Thorough) trades quality for tokens.
 Download the latest build from the [Releases](../../releases) page:
 
 - **Linux:** the `.AppImage` runs on any distribution, including immutable ones (make it executable and start it). `.deb` and `.rpm` packages are there too.
+  To get it into your app menu (and to pin it to the taskbar), let [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) integrate the AppImage, or put the file somewhere permanent (e.g. `~/Applications`) and add a menu entry yourself. A taskbar pin made from the running AppImage alone does not work, because it points to a temporary folder.
 - **Windows:** `.msi` / `.exe` installers are built automatically but have not been tested much yet. Reports are welcome.
 
 The AppImage and the Windows version update themselves: when a new release is out, the app offers to install it (signed and verified before it is installed). With `.deb` and `.rpm` the app tells you about the new version, and you install the package as usual.

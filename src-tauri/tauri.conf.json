@@ -37,7 +37,9 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "category": "Game",
+    "shortDescription": "Coats of arms, house names and words for CK3 with the AGOT mod"
   },
   "plugins": {
     "updater": {
