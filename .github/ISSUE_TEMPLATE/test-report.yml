@@ -6,8 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for trying Heraldry Creator! A short report helps a lot, especially for builds and AI providers nobody has tested yet.
-        For a bug with steps to reproduce, a normal issue is fine too.
+        Thanks for trying Heraldry Creator! This form is for builds and AI providers nobody has tested yet:
+        once the app runs on a build, or an AI provider generates designs, for one person, it counts as tested for good.
+        For a problem with a build or provider that is already tested, please open a normal issue instead.
   - type: dropdown
     id: build
     attributes:
