@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+*.log
+
+# Design workspace (FigCraft files, icon and logo drafts) stays local; some files embed
+# CoA renders from the game install. The app's own copies live in src/app/assets.
+design/

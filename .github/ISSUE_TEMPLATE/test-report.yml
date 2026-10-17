@@ -1,0 +1,80 @@
+name: Test report
+description: Tell us whether a build and an AI provider work for you. Reports marked as verified show up on the website.
+title: "[Test] "
+labels: ["test-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Heraldry Creator! A short report helps a lot, especially for builds and AI providers nobody has tested yet.
+        For a bug with steps to reproduce, a normal issue is fine too.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - Linux · AppImage
+        - Linux · .deb
+        - Linux · .rpm
+        - Windows · .msi / .exe
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Filled in when you open this form from the app; otherwise see the file name, e.g. 0.2.0.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system or Linux distribution and its version.
+      placeholder: Windows 11, Ubuntu 24.04, Bazzite 42 …
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI provider
+      options:
+        - Claude Code (local CLI)
+        - Anthropic API
+        - OpenAI API
+        - OpenRouter
+        - Google Gemini API
+        - Ollama (local)
+        - Copy & paste
+        - I did not try the AI
+    validations:
+      required: true
+  - type: dropdown
+    id: app_result
+    attributes:
+      label: App
+      description: Starts, reads your playset, shows and edits coats of arms.
+      options:
+        - Works
+        - Works, with problems
+        - Does not work
+    validations:
+      required: true
+  - type: dropdown
+    id: ai_result
+    attributes:
+      label: AI
+      description: Generate, Improve with AI or Inspiration with the provider above.
+      options:
+        - Works
+        - Works, with problems
+        - Does not work
+        - Not tried
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What did you try, and what went wrong if anything? Screenshots are welcome.

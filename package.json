@@ -1,0 +1,41 @@
+{
+  "name": "ck3-heraldry-creator",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cli": "tsx scripts/cli.ts",
+    "render-file": "tsx scripts/render-file.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "tauri": "tauri",
+    "app": "distrobox enter heraldry-dev -- bash -lc 'source ~/.cargo/env && npx tauri dev'",
+    "app:build": "distrobox enter heraldry-dev -- bash -lc 'source ~/.cargo/env && K=~/.tauri/heraldry-creator.key; if [ -f $K ]; then TAURI_SIGNING_PRIVATE_KEY=$K TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(cat $K.password) npx tauri build; else npx tauri build --no-sign; fi'"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-opener": "^2.7.2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sql.js": "^1.15.0"
+  }
+}

@@ -1,0 +1,58 @@
+coa_rd_dynasty_161235616={
+    pattern="pattern_solid.dds"
+    color1=white
+    color2=red
+    color3=green
+    colored_emblem={
+        color1=blue
+        color2=blue
+        texture="ce_lion_rampant_wide_stance.dds"
+        instance={
+            position={ 0.530000 0.840000 }
+            scale={ 0.260000 0.260000 }
+        }
+
+        instance={
+            position={ 0.310000 0.750000 }
+            scale={ 0.260000 0.260000 }
+            depth=1.010000
+            rotation=76
+        }
+
+        instance={
+            position={ 0.235000 0.545000 }
+            scale={ 0.260000 0.260000 }
+            depth=2.010000
+        }
+
+        instance={
+            position={ 0.750000 0.400000 }
+            scale={ 0.300000 0.300000 }
+            depth=3.010000
+        }
+
+        instance={
+            position={ 0.750000 0.160000 }
+            scale={ 0.300000 0.300000 }
+            depth=4.010000
+        }
+
+        instance={
+            position={ 0.505000 0.160000 }
+            scale={ 0.300000 0.300000 }
+            depth=5.010000
+        }
+
+    }
+
+    colored_emblem={
+        color1=red
+        color2=red
+        texture="ce_bend_thin.dds"
+        instance={
+            depth=6.010000
+        }
+
+    }
+
+}
