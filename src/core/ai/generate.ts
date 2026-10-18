@@ -146,18 +146,19 @@ const WORDS_SCHEMA = {
 /** Asks for directions of different richness, so a set always has a classic option and more detailed ones. */
 const variety = (variants: number) =>
   variants === 1
-    ? 'Give the direction a main charge plus one story detail drawn from the idea (a "secondary" motif), on a plain or divided field.'
-    : `Make the directions differ in richness: direction 1 is classic and simple (one bold charge or ordinary on a plain or divided field).
-  The others are more detailed: a field division, chief, canton or bordure, plus a story detail drawn from the idea as a "secondary" motif
-  (something from the house's history, trade, seat or founder). Every detail still has to read at small size.`;
+    ? 'Give the direction one strong main charge; add a supporting "secondary" motif only if it tells the story and has its own space.'
+    : `Make the directions clearly different: a different main charge and different colours in each. Direction 1 is classic and simple
+  (one bold charge or ordinary on a plain or divided field). The others may add one supporting element from the idea as a "secondary" motif
+  (history, trade, seat or founder), placed in its own space such as a chief or canton. At most one direction may use a wavy field or water base.
+  Look beyond the obvious charges (towers, keys, ships, chains, stars, waves) when the idea allows something more particular.`;
 
 /** Arms that mean something: canting arms on a proposed name, and the arms of houses the idea names. */
 const meaningHint = (houses: ExampleArms[]) =>
-  `Arms should mean something. At least one direction should be canting arms that play on one of your proposed names
-  (Rosewater → a rose above water, Crabb → a crab); put that name in the direction's title.${
+  `Arms should mean something. Where one of your proposed names lends itself, one direction may be canting arms that play on it
+  (Rosewater → a rose above water, Crabb → a crab); then put that name in the direction's title.${
     houses.length
       ? `\n  The idea names ${houses.map((h) => `House ${h.dynasty.name}`).join(' and ')}. If the new house descends from, marries into or unites them,
-  at least one direction should combine their charges and tinctures (e.g. Clegane's dogs on yellow with a Stark wolf's head in chief).`
+  one direction should combine their charges and tinctures cleanly (e.g. Clegane's dogs on yellow with a Stark wolf's head in chief).`
       : ''
   }`;
 
@@ -401,7 +402,7 @@ async function composeDesigns(
   });
   const exampleLines = examples.map((e) => `- ${e.dynasty.name}: ${JSON.stringify(coaToSpec(e.coa))}`).join('\n');
 
-  const composePrompt = `Compose ${variants} coats of arms, one per direction, for this house idea:
+  const composePrompt = `Compose ${variants} coats of arms, one per direction, for this house idea (each with a different main emblem):
 """${options.idea}"""
 ${parent}${housesBlock(houses)}${options.feedback?.trim() ? `\nThe user's wish for these designs:\n"""${options.feedback.trim()}"""` : ''}
 
@@ -460,7 +461,9 @@ ${exampleLines || '(none)'}`;
 Image 3 shows your rendered drafts 1–${designs.length}, as they will look in game:
 ${designs.map((d, i) => `${i + 1}. ${d.title}: ${JSON.stringify(d.spec)}`).join('\n')}
 
-Review each draft critically against its blazon and the rules: Is the main charge visible and not covered?
+Review each draft like an experienced herald, against its blazon and the rules: Is it clean, balanced and meaningful, or overloaded?
+Remove an element rather than squeeze it in. Does every charge have its own space (no overlaps, nothing half across an edge, nothing cut off)?
+Do the colours go together? Is the main charge visible and not covered?
 Do the emblems look like what was intended? Is the contrast good, also between neighbouring parts of the field? Is anything misplaced, cut off or empty?
 Imagine each draft 50 px wide: enlarge any detail that would vanish at that size, or remove it.
 Watch for thin seam lines across the field: emblems that reach the shield border must stay full size and centred.

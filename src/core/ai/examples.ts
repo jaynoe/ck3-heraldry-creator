@@ -1,7 +1,6 @@
-// Real AGOT arms as examples for the model. Most house arms in the mod are a single charge on a plain field,
-// so examples taken at random teach the model to be plain. These helpers pick the arms that share motifs
-// with the design directions and are well composed, and find the houses an idea names (a marriage of
-// Clegane and Stark should combine their arms).
+// Real AGOT arms as examples for the model. These helpers pick arms that share motifs with the design
+// directions and show clean craft (a few well-chosen elements, not clutter), and find the houses an idea names
+// (a marriage of Clegane and Stark should combine their arms).
 
 import type { Catalog, Dynasty } from '../catalog/catalog.ts';
 import type { CoatOfArms } from '../coa/model.ts';
@@ -14,18 +13,21 @@ export interface ExampleArms {
 
 const SOLID = 'pattern_solid.dds';
 
-/** How much a design does: repeated charges, several layers and a divided field count; clutter does not. */
-export function richness(coa: CoatOfArms): number {
+/**
+ * How well an example shows clean craft: two or three well-chosen elements score best, a lone charge is fine,
+ * and busy designs or wavy water fields (which the model already overuses) score lower.
+ */
+export function craft(coa: CoatOfArms): number {
   const instances = coa.coloredEmblems.reduce((n, e) => n + Math.max(1, e.instances.length), 0);
   const layers = new Set(coa.coloredEmblems.map((e) => e.texture)).size;
-  const divided = coa.pattern && coa.pattern !== SOLID ? 1 : 0;
-  // Beyond about eight pieces a design gets busy rather than better.
-  return Math.min(layers, 4) * 0.8 + Math.min(instances, 8) * 0.3 + divided * 1.2 - Math.max(0, instances - 10) * 0.2;
+  const divided = coa.pattern && coa.pattern !== SOLID;
+  const watery = [coa.pattern ?? '', ...coa.coloredEmblems.map((e) => e.texture)].some((t) => /wave|water|sea|nebuly/i.test(t));
+  return (layers === 2 || layers === 3 ? 1.5 : layers === 1 ? 0.8 : 0) + (instances <= 4 ? 0.6 : -0.3 * (instances - 4)) + (divided ? 0.5 : 0) - (watery ? 1.5 : 0);
 }
 
 /**
- * Up to `count` house arms for the prompt: sharing motifs with `keywords` counts most, then a well-composed
- * design, then the region. No two examples share their main emblem, so the set shows different ideas.
+ * Up to `count` house arms for the prompt: sharing motifs with `keywords` counts most, then clean craft,
+ * then the region. No two examples share their main emblem, so the set shows different ideas.
  */
 export function exampleArms(catalog: Catalog, o: { keywords: string[]; region?: string; exclude?: string[]; count?: number }): ExampleArms[] {
   const terms = expandKeywords(o.keywords);
@@ -36,7 +38,7 @@ export function exampleArms(catalog: Catalog, o: { keywords: string[]; region?: 
     if (!coa || exclude.has(dynasty.key) || !coa.coloredEmblems.length) continue;
     const tokens = new Set(coa.coloredEmblems.flatMap((e) => tokenize(e.texture)));
     const motif = [...terms].filter((t) => tokens.has(t)).length;
-    const score = motif * 3 + richness(coa) + (dynasty.group === o.region ? 1 : 0);
+    const score = motif * 3 + craft(coa) + (dynasty.group === o.region ? 1 : 0);
     scored.push({ ex: { dynasty, coa }, score, main: coa.coloredEmblems.at(-1)!.texture });
   }
   scored.sort((a, b) => b.score - a.score || a.ex.dynasty.key.localeCompare(b.ex.dynasty.key));

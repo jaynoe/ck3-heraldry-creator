@@ -117,9 +117,10 @@ export function searchEmblems(index: EmblemDoc[], keywords: string[], limit = 12
     for (const t of expanded) if (doc.tokens.has(t)) score += 1.5;
     for (const t of terms) if (!doc.tokens.has(t) && doc.houseTokens.has(t)) score += 2;
     if (score === 0) continue;
-    // Prefer emblems the designer lists and that real houses use, as a weak quality signal.
+    // Prefer emblems the designer lists and that real houses use, as a weak quality signal. Kept small, so that
+    // equally good matches get a chance instead of the same popular emblems every time.
     if (doc.visible) score += 0.3;
-    score += Math.min(doc.usedBy.length, 5) * 0.1;
+    score += Math.min(doc.usedBy.length, 5) * 0.03;
     hits.push({ doc, score });
   }
   return hits.sort((a, b) => b.score - a.score || a.doc.name.localeCompare(b.doc.name)).slice(0, limit);

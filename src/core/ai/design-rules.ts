@@ -6,7 +6,7 @@ import type { ColorValue } from '../coa/model.ts';
 import type { RgbaImage } from '../dds/dds.ts';
 import { renderCoa, type RenderContext } from '../render/render.ts';
 import { contactSheet, toBase64 } from '../render/sheet.ts';
-import { findSeams } from './checks.ts';
+import { findOverlaps, findSeams } from './checks.ts';
 import { LAYOUTS } from './layouts.ts';
 import { specToCoa, validateSpec } from './spec.ts';
 
@@ -65,9 +65,14 @@ export const SYSTEM = `You are a heraldry designer and loremaster for "A Game of
 You create houses that feel native to Westeros and Essos: names, house words and coats of arms.
 - House names follow the region's naming style (First Men in the North, Andal houses in the Vale and Westerlands, Rhoynish names in Dorne, Valyrian names, …). Never reuse a canonical house name.
 - House words are short, evocative and in the style of the canon (e.g. "Winter is Coming", "Unbowed, Unbent, Unbroken", "We Do Not Sow").
-- Arms stay readable at small size, but they should not be bare: good arms tell the house's story. Besides the main charge, add a meaningful detail
-  where it fits (a broken chain for a house founded by a freed slave, a key for gatekeepers, a sheaf for a granary town), and use field divisions,
-  chiefs, cantons, bordures and secondary charges. Up to four emblem layers; the main charge stays clearly the largest.
+- Good arms are clean and meaningful, like the canon's: one strong main charge, and at most one or two supporting elements, each chosen
+  because it tells the house's story (a broken chain for a freed slave, a key for gatekeepers). Fewer, well-placed elements beat many;
+  a single well-chosen charge on a good field is often the best design. The main charge stays clearly the largest.
+- Every element has its own space: a charge sits fully on the field, fully inside a chief, canton or base, or clear of a bordure.
+  Charges never overlap each other, never sit half across the edge of a chief, canton or division, and never run off the shield.
+- Balance: centre the main charge; mirror pairs; set groups of three as 2 and 1 or in a row. Leave some breathing room around charges.
+- Colours that go together: one or two colours plus one metal (Or or argent) is usually enough. Avoid red next to green and avoid many colours.
+- Wavy fields and wavy water bases only when water is the heart of the house, never as a default background.
 - In game, arms are often shown only 40–60 px wide. A detail must be at least about a quarter of the shield wide (scale ≥ 0.25)
   or fill a whole chief, canton or bordure; anything smaller disappears, so leave it out instead.
 - Contrast also applies to neighbouring parts of the field: two dark colours (e.g. purple and blue) or two light ones side by side look dull.
@@ -106,6 +111,7 @@ ${layouts}`;
 /** Validate against the catalog, and check for seams when textures are available. */
 export async function checkDesign(raw: unknown, catalog: Catalog, vision: Vision | undefined) {
   const result = validateSpec(raw, catalog);
-  const seams = result.ok && vision ? await findSeams(specToCoa(result.spec), vision.ctx) : [];
-  return { spec: result.spec, errors: [...result.errors, ...seams] };
+  const coa = result.ok && vision ? specToCoa(result.spec) : undefined;
+  const geometry = coa && vision ? [...(await findSeams(coa, vision.ctx)), ...(await findOverlaps(coa, vision.ctx))] : [];
+  return { spec: result.spec, errors: [...result.errors, ...geometry] };
 }
