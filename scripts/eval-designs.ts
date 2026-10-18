@@ -59,11 +59,9 @@ async function framed(s: HeraldrySession, coa: CoatOfArms, frame: string | undef
   return encodePng(mask ? applyMask(img, mask) : img);
 }
 
-let n = 0;
+/** Images are embedded, so the report is one file: a sandboxed (Flatpak) browser may only read the file it opens. */
 async function image(coa: CoatOfArms, frame: string | undefined): Promise<string> {
-  const file = `img-${++n}.png`;
-  await writeFile(join(values.out, file), await framed(session, coa, frame));
-  return file;
+  return `data:image/png;base64,${Buffer.from(await framed(session, coa, frame)).toString('base64')}`;
 }
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
