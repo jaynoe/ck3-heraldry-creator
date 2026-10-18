@@ -36,6 +36,8 @@ npm run cli -- export house_Cassel         # CoA as script text
 npm run cli -- generate "<idea>" [--parent dynn_Tully] [--variants 3] [--out-dir out] [--no-vision]
 npm run cli -- refine file.txt "<instruction>" [--out-dir out]   # before/after PNG + script
 npm run render-file -- file.txt            # render pasted CoA script(s) to PNG
+npm run eval-designs -- [--gold "Name,Name"] [--mode normal] [--only 3] [--no-generate] [--out out/eval-x]   # fixed ideas → HTML report (costs CLI quota)
+npm run eval-rate -- out/eval-a out/eval-b [--out out/rate.html]   # blind 1–5 star rating page for two or more runs
 ```
 
 Without `--playset`, the CLI uses the launcher's active playset. Paths can be overridden with `STEAM_ROOT`, `CK3_GAME_DIR` and `CK3_USER_DIR` (`src/node/paths.ts`).
@@ -67,7 +69,7 @@ Data flow: **launcher DB → playset → layered FS → catalog → render/expor
   1. **concept**: names, words, region and design directions, with motifs given as search keywords.
   2. `search.ts`: keyword search over emblem file-name tokens, synonyms and the names of the houses using each emblem (many AGOT emblems are named after houses, e.g. `ce_greyjoy`).
   3. **compose** into a `DesignSpec` (`spec.ts`): layers back to front, each with a named layout from `layouts.ts` or explicit placements.
-  4. `validateSpec` against the catalog, with one repair round.
+  4. `validateSpec` against the catalog plus geometry checks (`ai/checks.ts`: seams, and `findOverlaps` for charges that overlap, touch or cross a chief/canton/bordure or a small pattern part, or run off the shield), with one repair round.
   5. With vision: a numbered contact sheet of the candidates (`render/sheet.ts`) before compose, then a review of the rendered drafts.
 
   Providers implement `LlmProvider` (`ai/provider.ts`). The bring-your-own-key adapters live in `core/ai/providers/`:
@@ -87,6 +89,10 @@ Data flow: **launcher DB → playset → layered FS → catalog → render/expor
   1. **plan**: from the spec and a render, which new emblems are needed, as search keywords.
   2. **compose**: the revised `DesignSpec`, choosing from the current emblems plus search hits, with the candidate sheet.
   3. `checkDesign` plus one repair round.
+
+  Examples for compose come from `ai/examples.ts`: `exampleArms` picks real AGOT arms that share the directions' motifs and show clean craft (2–3 elements, no wavy fields); `mentionedHouses` finds capitalised house names in the idea, whose arms go into the prompts so a marriage or descent can combine them. The design rules favour clean, balanced arms (one main charge, at most one or two supporting elements, each in its own space, harmonious colours, wavy fields only when water is central); the "more creative" version with more elements rated worse in a blind test.
+
+  **Design quality loop:** change prompts or checks, run `npm run eval-designs` for the old and the new version (a git worktree for the old one), then `npm run eval-rate` and let the maintainer rate blind. Release only what rates better. Reports embed their images (sandboxed browsers can only read the file they open) and live in `out/` (gitignored: renders of game assets).
 
   Shared prompt parts (`SYSTEM`, `designRules`, contact sheets, `checkDesign`) live in `ai/design-rules.ts`. Spec colours may be palette names or `#rrggbb` (custom colours from imported designs). `coaToSpec` resolves `colorN` references. Textured emblems and subs are carried over unchanged.
 - **Shield shapes** (`core/render/frame.ts`): like in game, arms are cut out with the mask of the culture's house frame (`house_coa_frame` in `common/culture/cultures`, mask `gfx/interface/coat_of_arms/frames/<frame>_mask.dds`, shape in the alpha channel; AGOT has andal, valyrian, oval and round shapes). `frameFor` picks the house's own culture, then the parent of a cadet branch, then the most common frame in the region. On top goes the frame art (`frames/<frame>.dds`, a strip of 6 tiers that follow dynasty splendour in game; the app always uses `FRAME_TIER` = gold). `CoaPreview` takes `shape` (`null` keeps the square, used for emblem and pattern tiles) and `outside` (the editor keeps cut-off parts at 25 % and leaves the frame off, so placement near the edge stays visible). Without frame art a thin CSS outline follows the shape. This replaces the design file's "no shield crop" note, on the maintainer's wish.
