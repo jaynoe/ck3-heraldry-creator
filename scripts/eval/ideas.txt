@@ -1,0 +1,9 @@
+# Fixed ideas for scripts/eval-designs.ts. One idea per line; "| parent=dynn_Key" makes it a cadet branch.
+A Lyseni lowborn and years of slavery, fights his way back to freedom, moves to Westeros to Gulltown. As adventurer he earns respect in the east of the Vale. The Lord of Gulltown grants him knighthood
+Rising from ruins: a new house in a single rich Reach county near the Mander, expanding into a petty kingdom before the Conquest
+Sandor Clegane marries Sansa Stark, rules the Bolton Lands
+A minor Riverlands house of ferrymen on the Red Fork who grew rich on tolls
+Ironborn reavers who settled on a rocky island off Bear Island and took up whaling
+A Dornish house of desert guides who led the Martells' armies through the Red Mountains
+Second sons of House Tully who hold a watchtower where the Blue Fork meets the Trident | parent=dynn_Tully
+A Braavosi banking family that bought a ruined castle in the Crownlands

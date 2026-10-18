@@ -97,6 +97,12 @@ export interface SearchHit {
   score: number;
 }
 
+/** Keyword tokens plus their heraldic synonyms ("direwolf" → direwolf, wolf). */
+export function expandKeywords(keywords: string[]): Set<string> {
+  const terms = keywords.flatMap(tokenize);
+  return new Set([...terms, ...terms.flatMap((t) => SYNONYMS[t] ?? [])]);
+}
+
 /** Rank emblems for a set of keywords. Exact token hits count most, then synonyms, then prefixes. */
 export function searchEmblems(index: EmblemDoc[], keywords: string[], limit = 12): SearchHit[] {
   const terms = keywords.flatMap(tokenize);

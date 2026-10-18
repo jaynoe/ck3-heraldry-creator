@@ -14,7 +14,8 @@
     "build": "vite build",
     "tauri": "tauri",
     "app": "distrobox enter heraldry-dev -- bash -lc 'source ~/.cargo/env && npx tauri dev'",
-    "app:build": "distrobox enter heraldry-dev -- bash -lc 'source ~/.cargo/env && K=~/.tauri/heraldry-creator.key; if [ -f $K ]; then TAURI_SIGNING_PRIVATE_KEY=$K TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(cat $K.password) npx tauri build; else npx tauri build --no-sign; fi'"
+    "app:build": "distrobox enter heraldry-dev -- bash -lc 'source ~/.cargo/env && K=~/.tauri/heraldry-creator.key; if [ -f $K ]; then TAURI_SIGNING_PRIVATE_KEY=$K TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(cat $K.password) npx tauri build; else npx tauri build --no-sign; fi'",
+    "eval-designs": "tsx scripts/eval-designs.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3",

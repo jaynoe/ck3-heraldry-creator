@@ -10,6 +10,7 @@ import { renderCoa } from '../render/render.ts';
 import { contactSheet } from '../render/sheet.ts';
 import { checkDesign, designRules, emblemSheet, patternSheet, png, SYSTEM, type Vision } from './design-rules.ts';
 import type { JsonRequest, LlmProvider } from './provider.ts';
+import { exampleArms, mentionedHouses, type ExampleArms } from './examples.ts';
 import { buildEmblemIndex, describeEmblem, searchEmblems, type EmblemDoc } from './search.ts';
 import { coaToSpec, DESIGN_SCHEMA, specToCoa, type DesignSpec } from './spec.ts';
 
@@ -150,6 +151,22 @@ const variety = (variants: number) =>
   The others are more detailed: a field division, chief, canton or bordure, plus a story detail drawn from the idea as a "secondary" motif
   (something from the house's history, trade, seat or founder). Every detail still has to read at small size.`;
 
+/** Arms that mean something: canting arms on a proposed name, and the arms of houses the idea names. */
+const meaningHint = (houses: ExampleArms[]) =>
+  `Arms should mean something. At least one direction should be canting arms that play on one of your proposed names
+  (Rosewater → a rose above water, Crabb → a crab); put that name in the direction's title.${
+    houses.length
+      ? `\n  The idea names ${houses.map((h) => `House ${h.dynasty.name}`).join(' and ')}. If the new house descends from, marries into or unites them,
+  at least one direction should combine their charges and tinctures (e.g. Clegane's dogs on yellow with a Stark wolf's head in chief).`
+      : ''
+  }`;
+
+/** The arms of the houses an idea names, for the prompts. */
+const housesBlock = (houses: ExampleArms[]) =>
+  houses.length
+    ? `\nArms of the houses named in the idea (design format):\n${houses.map((h) => `- ${h.dynasty.name}: ${JSON.stringify(coaToSpec(h.coa))}`).join('\n')}`
+    : '';
+
 const MOTIF_HINT = `For each direction, list tinctures in plain words and motifs with search keywords.
   Emblems are found by keyword search over file names such as "ce_wolf_passant", "ce_bend_wavy", "ce_ship_longship", "ce_greyjoy".
   Use simple English nouns (wolf, heron, tower, wave, bend, chevron, cross, bordure, star …) and, where the motif is a canonical house sigil,
@@ -203,6 +220,7 @@ export async function generateHouse(provider: LlmProvider, catalog: Catalog, opt
   options.onProgress?.('Thinking up names, words and design directions');
   const samples = regionSamples(catalog);
   const parent = parentBlock(catalog, options.parent);
+  const houses = mentionedHouses(catalog, options.idea).filter((h) => h.dynasty.key !== options.parent);
 
   // --- Step 1: concept ---
   const regionLines = [...samples.entries()]
@@ -210,7 +228,7 @@ export async function generateHouse(provider: LlmProvider, catalog: Catalog, opt
     .join('\n');
   const conceptPrompt = `Idea for a new house:
 """${options.idea}"""
-${parent}
+${parent}${housesBlock(houses)}
 
 Regions (id: example houses with their words):
 ${regionLines}
@@ -219,7 +237,9 @@ Return:
 - region: the best matching region id
 - names: ${variants + 2} name options (without "House"), each with a one-sentence meaning
 - words: ${variants + 2} options for the house words
-- directions: ${variants} clearly different design directions. ${variety(variants)} ${MOTIF_HINT}${
+- directions: ${variants} clearly different design directions. ${variety(variants)}
+  ${meaningHint(houses)}
+  ${MOTIF_HINT}${
     options.name ? `\n\nThe player already chose the name "${options.name}": make it the first name option (with its meaning) and add alternatives.` : ''
   }${options.words ? `\nThe player already chose the words "${options.words}": make them the first words option and add alternatives.` : ''}`;
   const concept = (await provider.generateJson({ label: 'concept', system: SYSTEM, prompt: conceptPrompt, schema: CONCEPT_SCHEMA })) as Concept;
@@ -230,7 +250,7 @@ Return:
   }
   if (options.words) concept.words = [options.words, ...concept.words.filter((w) => w.toLowerCase() !== options.words!.toLowerCase())];
 
-  const designs = await composeDesigns(provider, catalog, { ...options, variants, region: concept.region, directions: concept.directions });
+  const designs = await composeDesigns(provider, catalog, { ...options, variants, region: concept.region, directions: concept.directions, houses });
   return { region: concept.region, names: markExisting(catalog, concept.names), words: concept.words, designs };
 }
 
@@ -309,19 +329,22 @@ export async function newDesigns(
   },
 ): Promise<GeneratedDesign[]> {
   const variants = c.variants ?? 3;
+  const houses = mentionedHouses(catalog, c.idea).filter((h) => h.dynasty.key !== c.parent);
   c.onProgress?.('Thinking up new design directions');
   const r = (await provider.generateJson({
     label: 'directions',
     system: SYSTEM,
     schema: DIRECTIONS_SCHEMA,
-    prompt: `${contextBlock(catalog, c)}
+    prompt: `${contextBlock(catalog, c)}${housesBlock(houses)}
 
 The user did not like these designs:
 ${c.previous.map((d) => `- ${d.title}: ${d.blazon}`).join('\n')}
 
-Return ${variants} NEW design directions that are clearly different from those and from each other. ${variety(variants)} ${MOTIF_HINT}`,
+Return ${variants} NEW design directions that are clearly different from those and from each other. ${variety(variants)}
+${meaningHint(houses)}
+${MOTIF_HINT}`,
   })) as { directions: Direction[] };
-  return composeDesigns(provider, catalog, { ...c, variants, directions: r.directions });
+  return composeDesigns(provider, catalog, { ...c, variants, directions: r.directions, houses });
 }
 
 /** Steps 2–4: candidate search, compose, validation with one repair round, and the visual review. */
@@ -334,6 +357,8 @@ async function composeDesigns(
     region: string;
     directions: Direction[];
     variants: number;
+    /** Houses the idea names; their arms go into the prompt. */
+    houses?: ExampleArms[];
     feedback?: string;
     vision?: Vision;
     onProgress?: (message: string) => void;
@@ -367,22 +392,25 @@ async function composeDesigns(
     images.push(await png(vision, await emblemSheet(vision.ctx, [...candidates.values()].map((c) => c.doc.name))));
     images.push(await png(vision, await patternSheet(vision.ctx, patternList)));
   }
-  const regionExamples = [...catalog.dynasties.values()]
-    .filter((d) => d.group === concept.region && catalog.coas.has(d.key))
-    .slice(0, 3)
-    .map((d) => `- ${d.name}: ${JSON.stringify(coaToSpec(catalog.coas.get(d.key)!.coa))}`)
-    .join('\n');
+  // Well-composed real arms that share the directions' motifs, instead of whatever the region lists first.
+  const houses = options.houses ?? [];
+  const examples = exampleArms(catalog, {
+    keywords: concept.directions.flatMap((d) => d.motifs.flatMap((m) => m.keywords)),
+    region: concept.region,
+    exclude: [...houses.map((h) => h.dynasty.key), ...(options.parent ? [options.parent] : [])],
+  });
+  const exampleLines = examples.map((e) => `- ${e.dynasty.name}: ${JSON.stringify(coaToSpec(e.coa))}`).join('\n');
 
   const composePrompt = `Compose ${variants} coats of arms, one per direction, for this house idea:
 """${options.idea}"""
-${parent}${options.feedback?.trim() ? `\nThe user's wish for these designs:\n"""${options.feedback.trim()}"""` : ''}
+${parent}${housesBlock(houses)}${options.feedback?.trim() ? `\nThe user's wish for these designs:\n"""${options.feedback.trim()}"""` : ''}
 
 ${directionBlocks.join('\n\n')}
 
 ${designRules(catalog, patternList, !!vision, 'ONLY emblem file names listed under the directions above.')}
 
-Example arms from the ${concept.region} region in this format:
-${regionExamples || '(none)'}`;
+Well-made AGOT arms with related motifs, as examples of the craft in this format (learn from them, do not copy them):
+${exampleLines || '(none)'}`;
 
   progress('Composing designs');
   const composed = (await provider.generateJson({
