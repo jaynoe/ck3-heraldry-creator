@@ -73,3 +73,4 @@ export function mentionedHouses(catalog: Catalog, text: string, max = 4): Exampl
   }
   return found.sort((a, b) => a.at - b.at).slice(0, max).map((f) => f.ex);
 }
+

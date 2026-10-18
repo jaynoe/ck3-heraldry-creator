@@ -150,6 +150,24 @@ function rasterise(tex: RgbaImage, inst: { position?: [number, number]; scale?: 
   return { cells, area, outside: opaque ? out / opaque : 0 };
 }
 
+/** The cells within `r` cells of a set cell. */
+function dilate(cells: Uint8Array, r: number): Uint8Array {
+  const out = new Uint8Array(cells.length);
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      if (!cells[y * GRID + x]) continue;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const yy = y + dy;
+          const xx = x + dx;
+          if (yy >= 0 && yy < GRID && xx >= 0 && xx < GRID) out[yy * GRID + xx] = 1;
+        }
+      }
+    }
+  }
+  return out;
+}
+
 const shared = (a: Uint8Array, b: Uint8Array) => {
   let n = 0;
   for (let i = 0; i < a.length; i++) if (a[i] && b[i]) n++;
@@ -176,6 +194,34 @@ export async function findOverlaps(coa: CoatOfArms, ctx: RenderContext): Promise
       });
     }
   }
+  // Small parts of a divided field (a quartered canton, a chief) count like compartments; the main part does not,
+  // and halves of per pale or per fess fields are big enough that charges may cross them.
+  const pattern = coa.pattern ? (await ctx.getTexture('pattern', coa.pattern))?.[0] : undefined;
+  if (pattern) {
+    for (const [ch, name] of [[0, 'colour 1'], [1, 'colour 2'], [2, 'colour 3']] as const) {
+      const cells = new Uint8Array(GRID * GRID);
+      let area = 0;
+      for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+          const tx = Math.min(pattern.width - 1, Math.floor(((x + 0.5) / GRID) * pattern.width));
+          const ty = Math.min(pattern.height - 1, Math.floor(((y + 0.5) / GRID) * pattern.height));
+          const i = (ty * pattern.width + tx) * 4;
+          // Like the shader: colour 1 by R, then colour 2 by G, then colour 3 by B, each painted over the last.
+          const g = pattern.data[i + 1]! > 128;
+          const b = pattern.data[i + 2]! > 128;
+          const part = b ? 2 : g ? 1 : 0;
+          if (part === ch) {
+            cells[y * GRID + x] = 1;
+            area++;
+          }
+        }
+      }
+      if (area > GRID * GRID * 0.05 && area < GRID * GRID * 0.35) {
+        items.push({ label: `the ${name} part of "${coa.pattern}"`, cells, area, outside: 0, field: true, compartment: true });
+      }
+    }
+  }
+
   const problems: string[] = [];
   const charges = items.filter((i) => !i.field);
   for (const c of charges) {
@@ -189,11 +235,14 @@ export async function findOverlaps(coa: CoatOfArms, ctx: RenderContext): Promise
   }
   for (const part of items.filter((i) => i.compartment)) {
     if (part.area > GRID * GRID * 0.6) continue; // fills most of the field: everything sits on it
+    // A small margin around the part: a charge that only almost touches it still looks crammed against it.
+    const near = dilate(part.cells, 3);
     for (const c of charges) {
-      // A charge belongs fully on the part (a ship in the canton) or clear of it; touching its edge looks crammed.
       const on = shared(c.cells, part.cells) / c.area;
-      if (on > 0.03 && on < 0.85) {
-        problems.push(`${c.label} touches or crosses ${part.label.replace(/ at .*/, '')} (${Math.round(on * 100)} % on it). Place it fully on it or keep it clear of it.`);
+      const close = shared(c.cells, near);
+      // A charge belongs fully on the part (a ship in the canton) or clear of it, with a visible gap (about 3 %).
+      if (on < 0.85 && close >= 3) {
+        problems.push(`${c.label} touches or crosses ${part.label.replace(/ at .*/, '')} (${Math.round(on * 100)} % on it). Place it fully on it or keep a clear gap.`);
       }
     }
   }

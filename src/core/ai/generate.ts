@@ -464,6 +464,7 @@ ${designs.map((d, i) => `${i + 1}. ${d.title}: ${JSON.stringify(d.spec)}`).join(
 Review each draft like an experienced herald, against its blazon and the rules: Is it clean, balanced and meaningful, or overloaded?
 Remove an element rather than squeeze it in. Does every charge have its own space (no overlaps, nothing half across an edge, nothing cut off)?
 Do the colours go together? Is the main charge visible and not covered?
+Is any draft too close to the arms of an existing house (e.g. a silver fist on red is Glover)? Then change its charge or colours.
 Do the emblems look like what was intended? Is the contrast good, also between neighbouring parts of the field? Is anything misplaced, cut off or empty?
 Imagine each draft 50 px wide: enlarge any detail that would vanish at that size, or remove it.
 Watch for thin seam lines across the field: emblems that reach the shield border must stay full size and centred.

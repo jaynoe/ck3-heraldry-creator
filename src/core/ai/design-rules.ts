@@ -77,7 +77,7 @@ You create houses that feel native to Westeros and Essos: names, house words and
   or fill a whole chief, canton or bordure; anything smaller disappears, so leave it out instead.
 - Contrast also applies to neighbouring parts of the field: two dark colours (e.g. purple and blue) or two light ones side by side look dull.
 - Respect the rule of tincture where sensible: avoid light charges on light fields and dark on dark.
-- Do not copy the arms of a canonical great house.`;
+- Do not copy or closely echo the arms of any canonical house (a silver fist on red is Glover, a black bat on silver Lothston), unless the new house is related to it.`;
 
 /** Rules for the DesignSpec format, shared by generation and refinement prompts. */
 export function designRules(catalog: Catalog, patternList: string[], vision: boolean, textureRule: string): string {
