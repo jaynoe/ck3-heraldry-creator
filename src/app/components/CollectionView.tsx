@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActionButton } from './ActionButton.tsx';
 import { parseCoaFile } from '../../core/coa/parse.ts';
-import { isIdea, newId, type LibraryItem, type SavedCoa, type SavedIdea } from '../../core/library.ts';
+import { houseStory, isIdea, newId, type LibraryItem, type SavedCoa, type SavedIdea } from '../../core/library.ts';
 import { copyText } from '../browser.ts';
 import { useApp } from '../context.ts';
 import { CoaPreview } from './CoaPreview.tsx';
@@ -9,7 +9,7 @@ import { frameFor } from '../../core/render/frame.ts';
 import type { EditorDoc } from './editor/doc.ts';
 import { ErrorLine, Icon, Spinner } from './Icon.tsx';
 import { Section } from './Section.tsx';
-import { houseLine, IdeaCard, IdeaMeta, useIdeaArms, type IdeaActions } from './IdeaCard.tsx';
+import { houseLine, IdeaCard, IdeaMeta, IdeaMore, IdeaPart, useIdeaArms, type IdeaActions } from './IdeaCard.tsx';
 
 export type CollectionTab = 'arms' | 'ideas';
 
@@ -39,7 +39,7 @@ export function CollectionView({
   const items = all?.filter((i): i is SavedCoa => !isIdea(i));
   const ideas = all?.filter(isIdea);
   const [openIdea, setOpenIdea] = useState<SavedIdea>();
-  const [confirmDelete, setConfirmDelete] = useState<string>();
+  const [openArms, setOpenArms] = useState<SavedCoa>();
   const [paste, setPaste] = useState('');
   const [pasteName, setPasteName] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -59,8 +59,8 @@ export function CollectionView({
 
   async function remove(id: string) {
     await platform.library.remove(id);
-    setConfirmDelete(undefined);
     setOpenIdea(undefined);
+    setOpenArms(undefined);
     await reload();
   }
 
@@ -144,9 +144,15 @@ export function CollectionView({
             <section className="cards3">
               {items.map((item) => {
                 const coa = firstCoa(item.script);
-                const confirming = confirmDelete === item.id;
                 return (
-                  <article key={item.id} className="card arms-card" data-confirm={confirming || undefined}>
+                  <article
+                    key={item.id}
+                    className="card arms-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenArms(item)}
+                    onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && setOpenArms(item)}
+                  >
                     <div className="well">
                       <CoaPreview coa={coa} size={192} shape={frameFor(catalog, { parent: item.parent, region: item.region })} />
                     </div>
@@ -157,39 +163,11 @@ export function CollectionView({
                     <span className="small faint">
                       {[item.region, item.playset, new Date(item.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}
                     </span>
-                    {item.idea && <p className="desc-text">{item.idea}</p>}
-                    <div className="actions stack" style={{ gap: 10 }}>
-                      {confirming && (
-                        <p className="small error">
-                          <b>Delete “{item.name}” from your Collection? This cannot be undone.</b>
-                        </p>
-                      )}
-                      <div className="row">
-                        {confirming ? (
-                          <>
-                            <ActionButton key="confirm" className="confirm small" action={() => remove(item.id)} labels={{ idle: 'Really delete', busy: 'Deleting…', done: 'Deleted' }} />
-                            <button key="cancel" className="secondary small" onClick={() => setConfirmDelete(undefined)}>
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <ActionButton key="copy" className="small" labels={{ idle: 'Copy for game', busy: 'Copying…', done: 'Copied' }} action={() => copyText(item.script)} />
-                            <button
-                              className="secondary small"
-                              disabled={!coa}
-                              onClick={() =>
-                                onEdit({ coa: coa!, name: item.name, words: item.words, idea: item.idea, region: item.region, parent: item.parent, libraryId: item.id, createdAt: item.createdAt })
-                              }
-                            >
-                              Edit
-                            </button>
-                            <button className="danger small" onClick={() => setConfirmDelete(item.id)}>
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
+                    <div className="row actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="primary small" onClick={() => setOpenArms(item)}>
+                        Open
+                      </button>
+                      <ActionButton className="small" labels={{ idle: 'Copy for game', busy: 'Copying…', done: 'Copied' }} action={() => copyText(item.script)} />
                     </div>
                   </article>
                 );
@@ -197,6 +175,15 @@ export function CollectionView({
             </section>
           )}
         </>
+      )}
+
+      {openArms && (
+        <ArmsDialog
+          item={openArms}
+          onEdit={(doc) => (setOpenArms(undefined), onEdit(doc))}
+          onDelete={() => remove(openArms.id)}
+          onClose={() => setOpenArms(undefined)}
+        />
       )}
 
       {openIdea && (
@@ -253,9 +240,8 @@ function IdeaTile({ item, onOpen }: { item: SavedIdea; onOpen: () => void }) {
   );
 }
 
-/** A saved idea in full, with its actions and delete. */
-function IdeaDialog({ item, actions, onDelete, onClose }: { item: SavedIdea; actions: IdeaActions; onDelete: () => Promise<void>; onClose: () => void }) {
-  const [confirm, setConfirm] = useState(false);
+/** The popup for one thing in the Collection. */
+function ItemDialog({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -265,30 +251,100 @@ function IdeaDialog({ item, actions, onDelete, onClose }: { item: SavedIdea; act
     <div className="overlay" onClick={onClose}>
       <div className="dialog idea-dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head">
-          <span className="label">Saved run idea · {new Date(item.createdAt).toLocaleDateString()}</span>
+          <span className="label">{label}</span>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <Icon name="close" size={18} />
           </button>
         </div>
-        <IdeaCard idea={item.idea} actions={actions}>
-          <span className="spacer" />
-          {confirm ? (
-            <>
-              <span className="small error">
-                <b>Delete this idea? This cannot be undone.</b>
-              </span>
-              <ActionButton key="confirm" className="confirm small" action={onDelete} labels={{ idle: 'Really delete', busy: 'Deleting…', done: 'Deleted' }} />
-              <button key="cancel" className="secondary small" onClick={() => setConfirm(false)}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button key="delete" className="danger small" onClick={() => setConfirm(true)}>
-              Delete
-            </button>
-          )}
-        </IdeaCard>
+        {children}
       </div>
     </div>
+  );
+}
+
+/** Delete with a confirmation step, at the end of a popup's action row. */
+function DeleteAction({ what, onDelete }: { what: string; onDelete: () => Promise<void> }) {
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <>
+      <span className="spacer" />
+      {confirm ? (
+        <>
+          <span className="small error">
+            <b>Delete {what}? This cannot be undone.</b>
+          </span>
+          <ActionButton key="confirm" className="confirm small" action={onDelete} labels={{ idle: 'Really delete', busy: 'Deleting…', done: 'Deleted' }} />
+          <button key="cancel" className="secondary small" onClick={() => setConfirm(false)}>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <button key="delete" className="danger small" onClick={() => setConfirm(true)}>
+          Delete
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Saved arms in full: the shield first, the text behind them in the same parts as a run idea. */
+function ArmsDialog({ item, onEdit, onDelete, onClose }: { item: SavedCoa; onEdit: (doc: EditorDoc) => void; onDelete: () => Promise<void>; onClose: () => void }) {
+  const { session } = useApp();
+  const coa = firstCoa(item.script);
+  const story = item.idea ? houseStory(item.idea) : undefined;
+  return (
+    <ItemDialog label={`Saved arms · ${new Date(item.createdAt).toLocaleDateString()}`} onClose={onClose}>
+      <article className="card idea-card">
+        <div className="idea-house">
+          <CoaPreview coa={coa} size={128} shape={frameFor(session.catalog, { parent: item.parent, region: item.region })} />
+          <div className="stack" style={{ gap: 4 }}>
+            <h2 className="heading">{item.name}</h2>
+            {item.words && <span className="words small">“{item.words}”</span>}
+            <span className="small muted">{[item.region, item.playset].filter(Boolean).join(' · ')}</span>
+          </div>
+        </div>
+
+        {story && <IdeaPart label={story.title ?? 'The idea'}>{story.lead}</IdeaPart>}
+        {story?.start && <IdeaPart label="Your start">{story.start}</IdeaPart>}
+        {story?.catch && (
+          <p className="idea-catch small">
+            <Icon name="warning" size={14} />
+            <span>{story.catch}</span>
+          </p>
+        )}
+        {story && story.details.length > 0 && (
+          <div className="idea-more">
+            {story.details.map((d) => (
+              <IdeaMore key={d.label} label={d.label}>
+                <span className="idea-more-text">{d.text}</span>
+              </IdeaMore>
+            ))}
+          </div>
+        )}
+
+        <div className="row idea-actions">
+          <button
+            className="primary small"
+            disabled={!coa}
+            onClick={() => onEdit({ coa: coa!, name: item.name, words: item.words, idea: item.idea, region: item.region, parent: item.parent, libraryId: item.id, createdAt: item.createdAt })}
+          >
+            Edit
+          </button>
+          <ActionButton className="small" labels={{ idle: 'Copy for game', busy: 'Copying…', done: 'Copied' }} action={() => copyText(item.script)} />
+          <DeleteAction what={`“${item.name}”`} onDelete={onDelete} />
+        </div>
+      </article>
+    </ItemDialog>
+  );
+}
+
+/** A saved idea in full, with its actions and delete. */
+function IdeaDialog({ item, actions, onDelete, onClose }: { item: SavedIdea; actions: IdeaActions; onDelete: () => Promise<void>; onClose: () => void }) {
+  return (
+    <ItemDialog label={`Saved run idea · ${new Date(item.createdAt).toLocaleDateString()}`} onClose={onClose}>
+      <IdeaCard idea={item.idea} actions={actions}>
+        <DeleteAction what="this idea" onDelete={onDelete} />
+      </IdeaCard>
+    </ItemDialog>
   );
 }

@@ -1535,8 +1535,11 @@ main {
   margin-top: auto;
   padding-top: var(--space-2);
 }
-.arms-card[data-confirm] {
-  border-color: var(--error);
+.arms-card {
+  cursor: pointer;
+}
+.arms-card:hover {
+  border-color: var(--muted);
 }
 .skeleton {
   width: 192px;
@@ -1831,17 +1834,55 @@ main {
   padding: 10px;
   background: var(--bg);
 }
-.idea-text {
+.idea-part {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 10px var(--space-4);
-  margin: 0;
+  gap: var(--space-1);
 }
-.idea-text dt {
-  padding-top: 3px;
+.idea-part p {
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.6;
 }
-.idea-text dd {
-  margin: 0;
+.idea-more {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.idea-more details {
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+.idea-more details:hover,
+.idea-more details[open] {
+  border-color: var(--muted);
+}
+.idea-more summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+.idea-more summary::-webkit-details-marker {
+  display: none;
+}
+.idea-more summary .label {
+  color: var(--text);
+}
+.idea-more summary .icon {
+  margin-left: auto;
+  color: var(--accent);
+}
+.idea-more details[open] summary .icon {
+  transform: rotate(180deg);
+}
+.idea-more-body {
+  padding: 0 var(--space-4) var(--space-4);
+}
+.idea-more-text {
+  white-space: pre-wrap;
 }
 .idea-rules {
   margin: 0;
@@ -1849,13 +1890,22 @@ main {
 }
 .idea-catch {
   display: flex;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: flex-start;
-  color: var(--muted);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-surface);
+  border-left: var(--border-thick) solid var(--accent);
+  color: var(--text);
 }
 .idea-catch .icon {
-  margin-top: 2px;
+  flex: none;
+  margin-top: 3px;
   color: var(--accent);
+}
+.idea-catch.faint {
+  background: var(--error-surface);
+  border-left-color: var(--error);
+  color: var(--text);
 }
 .idea-catch.faint .icon {
   color: var(--error);
@@ -1900,6 +1950,13 @@ main {
   border: none;
   padding: 0;
   background: none;
+}
+.idea-dialog .idea-actions {
+  position: sticky;
+  bottom: -24px;
+  margin-bottom: -24px;
+  padding: var(--space-3) 0 24px;
+  background: var(--panel);
 }
 
 /* Canon check and AWOIAF source links under an idea's canon text */

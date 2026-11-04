@@ -67,3 +67,59 @@ export function jsonStore<T extends { id: string }>(load: () => Promise<string>,
 export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+/** The text behind saved arms, split up for reading. */
+export interface HouseStory {
+  title?: string;
+  lead: string;
+  start?: string;
+  catch?: string;
+  details: { label: string; text: string }[];
+}
+
+const COPIED_LINE = /^(Start|House|Canon|Concept|Why it fits|Game rule|Sigil|Catch|Sources[^:]*): (.*)$/;
+const DETAIL_LABELS: Record<string, string> = { Canon: 'Canon', 'Why it fits': 'Why it fits', 'Game rule': 'Game rules', Sigil: 'Sigil & words' };
+
+/**
+ * Saved arms keep their idea as one text: a copied idea (`ideaToText`), a generated one (`ideaToHouseIdea`) or
+ * whatever the user typed. Anything that fits neither form stays whole as the lead.
+ */
+export function houseStory(text: string): HouseStory {
+  const all = text.trim();
+  if (all.startsWith('## ')) {
+    const [first, ...lines] = all.split('\n');
+    const fields = new Map<string, string[]>();
+    let last: string[] | undefined;
+    for (const line of lines) {
+      const m = COPIED_LINE.exec(line);
+      if (m) {
+        const key = m[1]!.startsWith('Sources') ? 'Sources' : m[1]!;
+        last = fields.get(key) ?? [];
+        fields.set(key, last);
+        last.push(m[2]!);
+      } else if (line.trim()) last?.push(line.trim());
+    }
+    const lead = fields.get('Concept')?.join('\n');
+    if (lead) {
+      return {
+        title: first!.slice(3).trim(),
+        lead,
+        start: fields.get('Start')?.join('\n').replace(/^free start date\.\s*/, ''),
+        catch: fields.get('Catch')?.join('\n'),
+        details: Object.entries(DETAIL_LABELS).flatMap(([key, label]) => (fields.has(key) ? [{ label, text: fields.get(key)!.join('\n') }] : [])),
+      };
+    }
+    return { lead: all, details: [] };
+  }
+  const marks = [...all.matchAll(/\s(Start|Sigil direction|Words direction): /g)];
+  if (!marks.length) return { lead: all, details: [] };
+  const part = (i: number) => all.slice(marks[i]!.index + marks[i]![0].length, marks[i + 1]?.index ?? all.length).trim().replace(/\.+$/, '');
+  const head = /^([^.]{3,80})\.\s+([\s\S]+)$/.exec(all.slice(0, marks[0]!.index).trim());
+  const found = marks.map((m, i) => ({ label: m[1]!, text: part(i) }));
+  return {
+    title: head?.[1],
+    lead: head?.[2] ?? all.slice(0, marks[0]!.index).trim(),
+    start: found.find((f) => f.label === 'Start')?.text,
+    details: found.filter((f) => f.label !== 'Start'),
+  };
+}

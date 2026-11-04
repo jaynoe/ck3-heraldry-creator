@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonLibrary, type SavedCoa } from '../src/core/library.ts';
+import { jsonLibrary, type SavedCoa, houseStory } from '../src/core/library.ts';
 
 const coa = (id: string): SavedCoa => ({ id, name: id, script: '', createdAt: '' });
 
@@ -29,5 +29,32 @@ describe('jsonLibrary', () => {
     );
     await expect(lib.save(coa('a'))).rejects.toThrow();
     expect(writes).toBe(0);
+  });
+});
+
+describe('houseStory', () => {
+  it('splits a copied idea', () => {
+    const story = houseStory('## The Whalers\nStart: 170 AC. In Braavos.\nHouse: Prestayn · Region: braavos\n\nCanon: Braavos lives off the sea.\nConcept: Found a station.\nWhy it fits: Ships.\nGame rule: A = B (c)\nGame rule: D = E (f)\nSigil: A whale · Words: "Cold"\nCatch: Hard.\nSources (A Wiki of Ice and Fire): https://x');
+    expect(story).toMatchObject({ title: 'The Whalers', lead: 'Found a station.', start: '170 AC. In Braavos.', catch: 'Hard.' });
+    expect(story.details.map((d) => d.label)).toEqual(['Canon', 'Why it fits', 'Game rules', 'Sigil & words']);
+    expect(story.details.find((d) => d.label === 'Game rules')?.text).toBe('A = B (c)\nD = E (f)');
+  });
+
+  it('drops the doubled start of a free start date', () => {
+    expect(houseStory('## T\nStart: free start date. Free start, 130 AC.\nConcept: C.').start).toBe('Free start, 130 AC.');
+  });
+
+  it('splits a generated idea', () => {
+    const story = houseStory('Rising from Ruins. In the Shattered World, start small. Start: Free start in 1 AC.. Sigil direction: A green river. Words direction: "From Silt, Bloom".');
+    expect(story).toMatchObject({ title: 'Rising from Ruins', lead: 'In the Shattered World, start small.', start: 'Free start in 1 AC' });
+    expect(story.details).toEqual([
+      { label: 'Sigil direction', text: 'A green river' },
+      { label: 'Words direction', text: '"From Silt, Bloom"' },
+    ]);
+  });
+
+  it('keeps free text whole', () => {
+    expect(houseStory('Sandor Clegane marries Sansa Stark, rules the Bolton Lands')).toEqual({ lead: 'Sandor Clegane marries Sansa Stark, rules the Bolton Lands', details: [] });
+    expect(houseStory('## Only a title\nNo fields here').lead).toBe('## Only a title\nNo fields here');
   });
 });

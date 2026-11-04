@@ -70,46 +70,12 @@ export function IdeaCard({ idea, n, actions, children }: { idea: IdeaSnapshot; n
         {arms.coa ? <CoaPreview coa={arms.coa} size={64} shape={arms.frame} /> : <div className="hatch" style={{ width: 64, height: 64 }} />}
         <div className="stack" style={{ gap: 2 }}>
           <b>{houseLine(idea)}</b>
-          <span className="muted" style={{ fontSize: 13 }}>{idea.startNote}</span>
+          {idea.words && <span className="words small">“{idea.words}”</span>}
         </div>
       </div>
 
-      <dl className="idea-text">
-        <dt className="label">Canon</dt>
-        <dd>
-          {idea.canon}
-          <CanonStatus idea={idea} />
-        </dd>
-        <dt className="label">The run</dt>
-        <dd>{idea.concept}</dd>
-        <dt className="label">Why it fits</dt>
-        <dd>{idea.fit}</dd>
-        {idea.rules.length > 0 && (
-          <>
-            <dt className="label">Game rules</dt>
-            <dd>
-              <ul className="idea-rules">
-                {idea.rules.map((r) => (
-                  <li key={r.name}>
-                    <b>{r.name}</b>: {r.option}
-                    <span className="muted"> – {r.why}</span>
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {(idea.sigil || idea.words) && (
-          <>
-            <dt className="label">Sigil &amp; words</dt>
-            <dd>
-              {idea.sigil}
-              {idea.sigil && idea.words && ' · '}
-              {idea.words && <span className="words small">“{idea.words}”</span>}
-            </dd>
-          </>
-        )}
-      </dl>
+      <IdeaPart label="The run">{idea.concept}</IdeaPart>
+      {idea.startNote && <IdeaPart label="Your start">{idea.startNote}</IdeaPart>}
 
       {idea.catch && (
         <p className="idea-catch small">
@@ -124,12 +90,57 @@ export function IdeaCard({ idea, n, actions, children }: { idea: IdeaSnapshot; n
         </p>
       ))}
 
-      <div className="row">
+      <div className="idea-more">
+        <IdeaMore label="Canon" hint={idea.canonCheck === 'checked' ? 'Checked' : undefined}>
+          {idea.canon}
+          <CanonStatus idea={idea} />
+        </IdeaMore>
+        <IdeaMore label="Why it fits">{idea.fit}</IdeaMore>
+        {idea.rules.length > 0 && (
+          <IdeaMore label="Game rules" hint={`${idea.rules.length}`}>
+            <ul className="idea-rules">
+              {idea.rules.map((r) => (
+                <li key={r.name}>
+                  <b>{r.name}</b>: {r.option}
+                  <span className="muted"> – {r.why}</span>
+                </li>
+              ))}
+            </ul>
+          </IdeaMore>
+        )}
+        {idea.sigil && <IdeaMore label="Sigil">{idea.sigil}</IdeaMore>}
+      </div>
+
+      <div className="row idea-actions">
         <IdeaMainAction idea={idea} actions={actions} />
         <ActionButton className="small" action={() => copyText(ideaToText(idea))} labels={{ idle: 'Copy', busy: 'Copying…', done: 'Copied' }} />
         {children}
       </div>
     </article>
+  );
+}
+
+/** A part of an idea that is always shown. */
+export function IdeaPart({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className="idea-part">
+      <h3 className="label">{label}</h3>
+      <p>{children}</p>
+    </section>
+  );
+}
+
+/** A part of an idea that stays folded until asked for. */
+export function IdeaMore({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <details>
+      <summary>
+        <span className="label">{label}</span>
+        {hint && <span className="small muted">{hint}</span>}
+        <Icon name="chevron-down" size={16} />
+      </summary>
+      <div className="idea-more-body">{children}</div>
+    </details>
   );
 }
 
