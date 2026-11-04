@@ -8,6 +8,7 @@ export interface SaveReading {
   date: string;
   title: string;
   nickname?: string;
+  arms?: { script: string; frame?: string };
 }
 
 const IDLE_MS = 5 * 60 * 1000;

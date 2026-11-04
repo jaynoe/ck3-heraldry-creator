@@ -3,6 +3,8 @@
 //
 // Left out on purpose: what the player cannot know in game, such as other people's secrets and plots against them.
 
+import { coaFromBlock } from '../coa/parse.ts';
+import { serializeCoa } from '../coa/serialize.ts';
 import { getFirst, getNumbers, isBlock, type PdxBlock, type PdxValue } from '../pdx/parser.ts';
 import { SaveData } from './save-file.ts';
 
@@ -528,8 +530,11 @@ export function buildSaveDigest(save: SaveData, localize: Localize = () => undef
       const t = title(id);
       const holder = num(t, 'holder');
       if (holder === undefined || holder === playerId || num(t, 'de_facto_liege') !== undefined || independent.has(holder)) return [];
-      independent.add(holder);
       const c = character(holder);
+      // A title without counties, baronies or vassals is no power, whatever troops the save gives its holder.
+      const land = nums(sub(c, 'landed_data'), 'domain');
+      if (land.length && !nums(sub(c, 'landed_data'), 'vassal_contracts').length && !land.some((d) => /^[cb]_/.test(str(title(d), 'key') ?? ''))) return [];
+      independent.add(holder);
       return [{ title: titleName(id) ?? '?', ruler: str(c, 'first_name') ?? '?', house: houseName(num(c, 'dynasty_house')), strength: Math.round(num(sub(c, 'landed_data'), 'strength') ?? 0), region: agot ? regionOf(id) : undefined, allied: allies.has(holder) }];
     })
     .sort((a, b) => b.strength - a.strength);
@@ -617,6 +622,13 @@ const section = (title: string, lines: (string | undefined | false)[]) => {
   return body.length ? `## ${title}\n${body.join('\n')}` : '';
 };
 const list = (items: string[]) => items.map((i) => `- ${i}`);
+
+/** The arms of the lord's house as the game shows them, and the frame that gives the shield its shape. */
+export function saveArms(save: SaveData): { script: string; frame?: string } | undefined {
+  const meta = save.block('meta_data');
+  const arms = sub(meta, 'meta_house_coat_of_arms') ?? sub(meta, 'meta_coat_of_arms');
+  return arms && { script: serializeCoa(coaFromBlock(arms)), frame: str(meta, 'frame') };
+}
 
 /** The digest as compact text for the Maester's prompt. */
 export function digestToText(d: SaveDigest): string {

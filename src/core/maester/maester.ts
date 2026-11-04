@@ -28,6 +28,8 @@ export interface MaesterChat {
   file: string;
   /** Digest of the last save read; empty until one was read. */
   notes: string;
+  /** The arms of the lord's house, from the last save read. */
+  arms?: { script: string; frame?: string };
   /** What older messages said, once the conversation got long. */
   summary?: string;
   /** Messages before this index are covered by the summary. */

@@ -1,13 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { maesterAnswer, newChat, readingGreeting } from '../src/core/maester/maester.ts';
-import { buildSaveDigest, cleanText, digestToText } from '../src/core/save/digest.ts';
+import { buildSaveDigest, cleanText, digestToText, saveArms } from '../src/core/save/digest.ts';
 import { SaveData, SaveFormatError, unpackSave } from '../src/core/save/save-file.ts';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 
 const GAMESTATE = `meta_data={
 \tversion="1.19.0.6"
+\tframe="house_frame_val1"
+\tmeta_house_coat_of_arms={
+\t\tpattern="pattern_solid.dds"
+\t\tcolor1=agot_gold
+\t\tcolored_emblem={
+\t\t\tcolor1=agot_black
+\t\t\ttexture="acs_targaryen.dds"
+\t\t}
+\t}
 }
 date=8253.7.6
 bookmark_date=8132.1.1
@@ -59,6 +68,14 @@ living={
 \tbirth=8247.5.30
 \tfamily_data={
 \t\tbetrothed=3
+\t}
+}
+9={
+\tfirst_name="Bernarr"
+\tbirth=8200.1.1
+\tlanded_data={
+\t\tdomain={ 28 }
+\t\tstrength=3594
 \t}
 }
 6={
@@ -187,6 +204,14 @@ landed_titles={
 27={
 \tkey=e_narrow_sea
 }
+28={
+\tkey=k_harrenhal
+\tholder=9
+\tde_jure_liege=30
+\ttitle_name_data={
+\t\tname="Harrenhal"
+\t}
+}
 30={
 \tkey=h_the_iron_throne
 \tholder=1
@@ -225,7 +250,7 @@ describe('save files', () => {
   it('finds sections and entries without parsing everything', () => {
     const s = new SaveData(bytes(GAMESTATE));
     expect(s.scalar('date')).toBe('8253.7.6');
-    expect(s.ids('living').sort()).toEqual([1, 3, 4, 6]);
+    expect(s.ids('living').sort()).toEqual([1, 3, 4, 6, 9]);
     expect(s.entriesContaining('living', 'ethnicity=dragon')).toEqual([6]);
     expect(s.ids('dynasties', 0, 'dynasties')).toEqual([7]);
     expect(s.ids('dynasties', 0, 'dynasty_house')).toEqual([5]);
@@ -257,6 +282,9 @@ describe('save files', () => {
     // Myr is held by an ally, so it stays although the lord has no land abroad.
     expect(text).toMatch(/All other independent powers: Essos and other lands\n- Myr: /);
     expect(d.distant).toEqual([]);
+    // A title without land is no power.
+    expect(text).not.toContain('Harrenhal');
+    expect(saveArms(new SaveData(bytes(GAMESTATE)))).toMatchObject({ frame: 'house_frame_val1', script: expect.stringContaining('acs_targaryen.dds') });
   });
 });
 

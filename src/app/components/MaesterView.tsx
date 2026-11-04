@@ -5,14 +5,17 @@ import type { LlmProvider } from '../../core/ai/provider.ts';
 import type { ProviderInfo } from '../../core/ai/providers/types.ts';
 import { jsonStore, newId } from '../../core/library.ts';
 import { compactChat, digestChanges, maesterAnswer, newChat, readingGreeting, type MaesterChat, type MaesterMessage } from '../../core/maester/maester.ts';
+import { parseCoaFile } from '../../core/coa/parse.ts';
 import { formatDate } from '../../core/save/digest.ts';
 import { parseSaveHead } from '../../core/save/save-file.ts';
 import { useApp } from '../context.ts';
 import { SaveArchive } from '../maester/archive.ts';
 import type { SaveFileInfo } from '../platform/types.ts';
 import { ActionButton } from './ActionButton.tsx';
+import { CoaPreview } from './CoaPreview.tsx';
 import { EffortPicker } from './EffortPicker.tsx';
 import { ErrorLine, Icon, Spinner } from './Icon.tsx';
+import { MaesterAvatar } from './MaesterAvatar.tsx';
 import { ReportTestLink, TestTag } from './TestTag.tsx';
 
 /** A chat with the Maester about a running campaign; he knows it from a save. */
@@ -56,7 +59,7 @@ export function MaesterView({
   const chat = chats?.find((c) => c.id === openId);
   const noProvider = typeof provider === 'string';
   const busy = step !== undefined;
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [chat?.messages.length, step]);
+  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [chat?.id, chat?.messages.length, step]);
 
   async function put(next: MaesterChat) {
     setChats((list) => [next, ...(list ?? []).filter((c) => c.id !== next.id)]);
@@ -90,6 +93,7 @@ export function MaesterView({
         title: into.notes ? into.title : reading.title,
         file: save.name,
         notes: reading.notes,
+        arms: reading.arms ?? into.arms,
         updatedAt: now,
         messages: [...into.messages, message, { role: 'maester', text: greeting, at: now }],
       });
@@ -151,9 +155,12 @@ export function MaesterView({
             {chats.map((c) => (
               <div key={c.id} className="maester-chat" data-active={c.id === openId || undefined}>
                 <button className="maester-chat-open" onClick={() => setOpenId(c.id)}>
-                  <span className="radio-title">{c.title}</span>
-                  <span className="small muted">
-                    {c.file || 'No save read'} · {new Date(c.updatedAt).toLocaleDateString()}
+                  <ChatArms arms={c.arms} size={44} />
+                  <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+                    <span className="radio-title">{c.title}</span>
+                    <span className="small muted">
+                      {c.file || 'No save read'} · {new Date(c.updatedAt).toLocaleDateString()}
+                    </span>
                   </span>
                 </button>
                 {confirmDelete === c.id ? (
@@ -214,6 +221,7 @@ export function MaesterView({
         {chat && (
           <>
             <div className="row maester-head">
+              <ChatArms arms={chat.arms} size={40} />
               <h2 className="heading">{chat.title}</h2>
               <span className="spacer" />
               <button className="small secondary" disabled={busy} onClick={() => setPicker(true)}>
@@ -222,12 +230,15 @@ export function MaesterView({
             </div>
             <div className="maester-log">
               {chat.messages.map((m, i) => (
-                <Message key={i} message={m} />
+                <Message key={i} message={m} arms={chat.arms} />
               ))}
               {step && (
-                <p className="maester-step small muted">
-                  <Spinner size={14} /> {step}
-                </p>
+                <div className="maester-step" aria-live="polite">
+                  <MaesterAvatar thinking />
+                  <p className="muted">
+                    <Spinner size={14} /> {step}
+                  </p>
+                </div>
               )}
               {error && (
                 <div className="stack" style={{ gap: 6 }}>
@@ -267,7 +278,20 @@ export function MaesterView({
   );
 }
 
-function Message({ message: m }: { message: MaesterMessage }) {
+/** The arms of the lord's house as a small shield; a plain one until a save was read. */
+function ChatArms({ arms, size }: { arms: MaesterChat['arms']; size: number }) {
+  const coa = useMemo(() => (arms ? parseCoaFile(arms.script).values().next().value : undefined), [arms]);
+  if (!coa) {
+    return (
+      <span className="maester-noarms" style={{ width: size, height: size }}>
+        <Icon name="shield" size={Math.round(size * 0.6)} />
+      </span>
+    );
+  }
+  return <CoaPreview coa={coa} size={size} shape={arms?.frame} className="maester-arms" />;
+}
+
+function Message({ message: m, arms }: { message: MaesterMessage; arms: MaesterChat['arms'] }) {
   const { platform } = useApp();
   if (m.role === 'reading') {
     return (
@@ -288,10 +312,12 @@ function Message({ message: m }: { message: MaesterMessage }) {
   }
   return (
     <article className="maester-message" data-role={m.role}>
+      {m.role === 'lord' ? <ChatArms arms={arms} size={48} /> : <MaesterAvatar />}
+      <div className="maester-bubble">
       <span className="label">{m.role === 'lord' ? 'You' : 'Maester'}</span>
-      <p>{m.text}</p>
+      <p className="maester-text">{m.text}</p>
       {(m.consulted || m.sources) && (
-        <p className="small faint">
+        <p className="small muted">
           {m.consulted && `Consulted the records of ${m.consulted.join(', ')}. `}
           {m.sources && 'From A Wiki of Ice and Fire: '}
           {m.sources?.map((s, i) => (
@@ -310,6 +336,7 @@ function Message({ message: m }: { message: MaesterMessage }) {
           ))}
         </p>
       )}
+      </div>
     </article>
   );
 }
