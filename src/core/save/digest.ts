@@ -5,7 +5,7 @@
 
 import { coaFromBlock } from '../coa/parse.ts';
 import { serializeCoa } from '../coa/serialize.ts';
-import { getFirst, getNumbers, isBlock, type PdxBlock, type PdxValue } from '../pdx/parser.ts';
+import { getFirst, getNumbers, isBlock, parsePdx, type PdxBlock, type PdxValue } from '../pdx/parser.ts';
 import { SaveData } from './save-file.ts';
 
 /** Localised text for a game key; undefined if unknown. */
@@ -628,6 +628,22 @@ export function saveArms(save: SaveData): { script: string; frame?: string } | u
   const meta = save.block('meta_data');
   const arms = sub(meta, 'meta_house_coat_of_arms') ?? sub(meta, 'meta_coat_of_arms');
   return arms && { script: serializeCoa(coaFromBlock(arms)), frame: str(meta, 'frame') };
+}
+
+/** The same arms from the start of a save file, without unpacking it. Undefined if the start ends inside them. */
+export function armsFromHead(head: string): { script: string; frame?: string } | undefined {
+  const open = head.indexOf('{', head.indexOf('meta_house_coat_of_arms='));
+  if (!head.includes('meta_house_coat_of_arms=') || open < 0) return undefined;
+  let depth = 0;
+  for (let i = open; i < head.length; i++) {
+    if (head[i] === '{') depth++;
+    else if (head[i] === '}' && --depth === 0) {
+      const arms = parsePdx(`x=${head.slice(open, i + 1)}`).entries[0]?.value;
+      if (!isBlock(arms)) return undefined;
+      return { script: serializeCoa(coaFromBlock(arms)), frame: /\bframe="([^"]+)"/.exec(head)?.[1] };
+    }
+  }
+  return undefined;
 }
 
 /** The digest as compact text for the Maester's prompt. */

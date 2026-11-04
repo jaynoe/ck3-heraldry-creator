@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { maesterAnswer, newChat, readingGreeting } from '../src/core/maester/maester.ts';
-import { buildSaveDigest, cleanText, digestToText, saveArms } from '../src/core/save/digest.ts';
+import { armsFromHead, buildSaveDigest, cleanText, digestToText, saveArms } from '../src/core/save/digest.ts';
 import { SaveData, SaveFormatError, unpackSave } from '../src/core/save/save-file.ts';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
@@ -284,7 +284,11 @@ describe('save files', () => {
     expect(d.distant).toEqual([]);
     // A title without land is no power.
     expect(text).not.toContain('Harrenhal');
-    expect(saveArms(new SaveData(bytes(GAMESTATE)))).toMatchObject({ frame: 'house_frame_val1', script: expect.stringContaining('acs_targaryen.dds') });
+    const arms = saveArms(new SaveData(bytes(GAMESTATE)));
+    expect(arms).toMatchObject({ frame: 'house_frame_val1', script: expect.stringContaining('acs_targaryen.dds') });
+    expect(armsFromHead(GAMESTATE)).toEqual(arms);
+    // A file start that ends inside the arms gives none, rather than half a shield.
+    expect(armsFromHead(GAMESTATE.slice(0, GAMESTATE.indexOf('acs_targaryen')))).toBeUndefined();
   });
 });
 

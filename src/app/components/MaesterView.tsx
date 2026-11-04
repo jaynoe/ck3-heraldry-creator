@@ -6,7 +6,7 @@ import type { ProviderInfo } from '../../core/ai/providers/types.ts';
 import { jsonStore, newId } from '../../core/library.ts';
 import { compactChat, digestChanges, maesterAnswer, newChat, readingGreeting, type MaesterChat, type MaesterMessage } from '../../core/maester/maester.ts';
 import { parseCoaFile } from '../../core/coa/parse.ts';
-import { formatDate } from '../../core/save/digest.ts';
+import { armsFromHead, formatDate } from '../../core/save/digest.ts';
 import { parseSaveHead } from '../../core/save/save-file.ts';
 import { useApp } from '../context.ts';
 import { SaveArchive } from '../maester/archive.ts';
@@ -55,6 +55,18 @@ export function MaesterView({
   useEffect(() => {
     store.list().then(setChats, (e: Error) => setLoadError(e.message));
   }, [store]);
+
+  // Chats read before arms were stored show those of their save file, if it is still there.
+  const [fileArms, setFileArms] = useState<Map<string, MaesterChat['arms']>>(new Map());
+  const armsMissing = chats?.some((c) => c.file && !c.arms);
+  useEffect(() => {
+    if (!armsMissing) return;
+    platform.saves.list().then(
+      (all) => setFileArms(new Map(all.map((s) => [s.name, armsFromHead(s.head)]))),
+      () => undefined, // Only decoration: the plain shield stays.
+    );
+  }, [armsMissing, platform]);
+  const armsOf = (c: MaesterChat) => c.arms ?? fileArms.get(c.file);
 
   const chat = chats?.find((c) => c.id === openId);
   const noProvider = typeof provider === 'string';
@@ -155,7 +167,7 @@ export function MaesterView({
             {chats.map((c) => (
               <div key={c.id} className="maester-chat" data-active={c.id === openId || undefined}>
                 <button className="maester-chat-open" onClick={() => setOpenId(c.id)}>
-                  <ChatArms arms={c.arms} size={44} />
+                  <ChatArms arms={armsOf(c)} size={44} />
                   <span className="stack" style={{ gap: 2, minWidth: 0 }}>
                     <span className="radio-title">{c.title}</span>
                     <span className="small muted">
@@ -221,7 +233,7 @@ export function MaesterView({
         {chat && (
           <>
             <div className="row maester-head">
-              <ChatArms arms={chat.arms} size={40} />
+              <ChatArms arms={armsOf(chat)} size={40} />
               <h2 className="heading">{chat.title}</h2>
               <span className="spacer" />
               <button className="small secondary" disabled={busy} onClick={() => setPicker(true)}>
@@ -230,7 +242,7 @@ export function MaesterView({
             </div>
             <div className="maester-log">
               {chat.messages.map((m, i) => (
-                <Message key={i} message={m} arms={chat.arms} />
+                <Message key={i} message={m} arms={armsOf(chat)} />
               ))}
               {step && (
                 <div className="maester-step" aria-live="polite">
