@@ -1,7 +1,7 @@
 // Ties the pieces together: game + playset mods → layered FS → catalog → render context.
 
 import { frameArtPath, frameMaskPath } from './render/frame.ts';
-import { buildCatalog, TextureCache, type AssetKind, type Catalog } from './catalog/catalog.ts';
+import { buildCatalog, loadLocalization, TextureCache, type AssetKind, type Catalog } from './catalog/catalog.ts';
 import type { RgbaImage } from './dds/dds.ts';
 import { LayeredFs, type Layer } from './fs/layered.ts';
 import type { FileSource } from './fs/types.ts';
@@ -44,6 +44,13 @@ export class HeraldrySession {
   /** Use a catalog restored from the cache instead of reading the game files. */
   static fromCatalog(layers: Layer[], catalog: Catalog): HeraldrySession {
     return new HeraldrySession(new LayeredFs(layers), catalog);
+  }
+
+  private texts?: Promise<Map<string, string>>;
+  /** The game's texts. A catalog from the cache has none, so they are read once when something needs them. */
+  localization(): Promise<Map<string, string>> {
+    this.texts ??= this.catalog.localization.size ? Promise.resolve(this.catalog.localization) : loadLocalization(this.fs);
+    return this.texts;
   }
 
   private masks = new Map<string, Promise<RgbaImage | undefined>>();

@@ -2,7 +2,7 @@
 // read-only access to the game, workshop and Paradox user folders, the local Claude CLI, and the
 // library file. Only active in `vite dev`, which listens on localhost.
 
-import { chmod, mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, open, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -15,6 +15,7 @@ import { fetchWikiQuery } from '../src/core/ai/canon.ts';
 
 const wikiQuery = fetchWikiQuery((url, init) => fetch(url, init));
 
+const maesterFile = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'ck3-heraldry-creator', 'maester.json');
 const libraryFile = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'ck3-heraldry-creator', 'library.json');
 const cacheDir = join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ck3-heraldry-creator');
 
@@ -214,6 +215,38 @@ export function devApi(): Plugin {
               return json(res, await wikiQuery(Object.fromEntries(url.searchParams)));
             } catch (e) {
               return json(res, { error: (e as Error).message }, 502);
+            }
+          }
+
+          if (url.pathname === '/saves') {
+            const dir = join(paths.user, 'save games');
+            const names = (await readdir(dir).catch(() => [] as string[])).filter((n) => n.endsWith('.ck3'));
+            const saves = await Promise.all(
+              names.map(async (name) => {
+                const file = join(dir, name);
+                const s = await stat(file);
+                const handle = await open(file, 'r');
+                const { buffer, bytesRead } = await handle.read(Buffer.alloc(4096), 0, 4096, 0);
+                await handle.close();
+                return { name, modified: s.mtimeMs, size: s.size, head: buffer.subarray(0, bytesRead).toString('latin1') };
+              }),
+            );
+            return json(res, saves.sort((a, b) => b.modified - a.modified));
+          }
+
+          if (url.pathname === '/maester') {
+            if (req.method === 'GET') {
+              try {
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(await readFile(maesterFile));
+              } catch (e) {
+                if ((e as NodeJS.ErrnoException).code === 'ENOENT') return res.end('[]');
+                throw e;
+              }
+            }
+            if (req.method === 'PUT') {
+              await writeAtomic(maesterFile, await body(req));
+              return json(res, { ok: true });
             }
           }
 

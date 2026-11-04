@@ -17,6 +17,7 @@ import { ImportPanel } from './components/editor/ImportPanel.tsx';
 import { GenerateView } from './components/GenerateView.tsx';
 import { HousesView } from './components/HousesView.tsx';
 import { InspireView } from './components/InspireView.tsx';
+import { MaesterView } from './components/MaesterView.tsx';
 import type { HouseSeed } from './components/IdeaCard.tsx';
 import { ReportTestLink, TestTag } from './components/TestTag.tsx';
 import { UpdateNotice } from './components/Updates.tsx';
@@ -30,7 +31,7 @@ import { ErrorLine, Icon, Spinner, type IconName } from './components/Icon.tsx';
 import logo from './assets/quartered-small-dark.svg';
 import type { Platform } from './platform/types.ts';
 
-type Tab = 'inspire' | 'generate' | 'editor' | 'houses' | 'library' | 'settings';
+type Tab = 'maester' | 'inspire' | 'generate' | 'editor' | 'houses' | 'library' | 'settings';
 /** Game files are never read automatically; only the button triggers a (slow) scan. */
 type DataStatus = 'checking' | 'missing' | 'scanning' | 'ready';
 
@@ -251,6 +252,10 @@ export function App({ platform }: { platform: Platform }) {
         {tab === 'settings' && <SettingsView platform={platform} settings={providerSettings} onChange={changeProvider} mode={aiMode} onMode={setAiMode} />}
         {state && (
           <AppContext.Provider value={state}>
+            {/* Kept mounted so a running answer and the draft survive switching tabs. */}
+            <div hidden={tab !== 'maester'} className="fill">
+              <MaesterView provider={provider} providerLabel={providerLabel} providerInfo={info} mode={aiMode} onMode={setAiMode} onSettings={() => setTab('settings')} />
+            </div>
             {/* Kept mounted so the ideas survive switching tabs. */}
             <div hidden={tab !== 'inspire'} className="fill">
               <InspireView
@@ -372,6 +377,7 @@ const TABS: [Tab, string, IconName, string?][] = [
   ['generate', 'Generate', 'quill'],
   ['editor', 'Editor', 'dividers'],
   ['inspire', 'Inspiration', 'scroll', 'Ideas'],
+  ['maester', 'Maester', 'seal'],
   ['houses', 'AGOT houses', 'keep', 'Houses'],
   ['library', 'Collection', 'shield'],
   ['settings', 'Settings', 'key'],

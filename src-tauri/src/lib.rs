@@ -168,6 +168,54 @@ fn library_save(json: String) -> Result<(), String> {
     write_atomic(&library_file(), &json)
 }
 
+/// The Maester's conversations; they stay on this computer.
+fn maester_file() -> PathBuf {
+    dirs::data_dir().unwrap_or_default().join("ck3-heraldry-creator/maester.json")
+}
+
+#[tauri::command]
+fn maester_load() -> Result<String, String> {
+    match std::fs::read_to_string(maester_file()) {
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok("[]".into()),
+        Err(e) => Err(format!("cannot read {}: {e}", maester_file().display())),
+    }
+}
+
+#[tauri::command]
+fn maester_save(json: String) -> Result<(), String> {
+    write_atomic(&maester_file(), &json)
+}
+
+#[derive(Serialize)]
+struct SaveFileInfo {
+    name: String,
+    modified: f64,
+    size: u64,
+    head: String,
+}
+
+/// The save games with the start of each file, enough to show ruler, house and date without reading them.
+#[tauri::command]
+fn saves_list(paths: tauri::State<Paths>) -> Vec<SaveFileInfo> {
+    use std::io::Read;
+    let dir = Path::new(&paths.user).join("save games");
+    let Ok(entries) = std::fs::read_dir(dir) else { return vec![] };
+    let mut saves: Vec<SaveFileInfo> = entries
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "ck3"))
+        .filter_map(|e| {
+            let meta = e.metadata().ok()?;
+            let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as f64;
+            let mut head = vec![0u8; 4096];
+            let n = std::fs::File::open(e.path()).ok()?.read(&mut head).ok()?;
+            Some(SaveFileInfo { name: e.file_name().to_string_lossy().into_owned(), modified, size: meta.len(), head: String::from_utf8_lossy(&head[..n]).into_owned() })
+        })
+        .collect();
+    saves.sort_by(|a, b| b.modified.total_cmp(&a.modified));
+    saves
+}
+
 fn cache_file(key: &str) -> Option<PathBuf> {
     let safe: String = key.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
     (!safe.is_empty()).then(|| dirs::cache_dir().unwrap_or_default().join("ck3-heraldry-creator").join(format!("{safe}.json")))
@@ -512,6 +560,9 @@ pub fn run() {
             fs_read,
             library_load,
             library_save,
+            maester_load,
+            maester_save,
+            saves_list,
             cache_get,
             cache_set,
             keys_status,

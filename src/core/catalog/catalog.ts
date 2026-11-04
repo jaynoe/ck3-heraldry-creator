@@ -139,7 +139,7 @@ async function loadAssets(fs: LayeredFs, kind: AssetKind): Promise<Map<string, A
   return out;
 }
 
-async function loadLocalization(fs: LayeredFs, language: string): Promise<Map<string, string>> {
+export async function loadLocalization(fs: LayeredFs, language = 'english'): Promise<Map<string, string>> {
   // Only walk the folders of one language; mods use both localization/<lang>/… and localization/replace/<lang>/….
   const deep = await Promise.all([fs.listFilesDeep(`localization/${language}`), fs.listFilesDeep(`localization/replace/${language}`)]);
   const files = deep.flat().filter((f) => f.path.endsWith(`_l_${language}.yml`));

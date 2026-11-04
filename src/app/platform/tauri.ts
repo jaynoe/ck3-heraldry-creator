@@ -8,7 +8,7 @@ import type { HostResponse } from '../../core/ai/providers/types.ts';
 import { joinPath, type DirEntry, type FileSource } from '../../core/fs/types.ts';
 import { jsonLibrary } from '../../core/library.ts';
 import { readPlaysets, type Playset } from '../../core/mods/playsets.ts';
-import type { Platform } from './types.ts';
+import type { Platform, SaveFileInfo } from './types.ts';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
@@ -65,6 +65,19 @@ export async function createTauriPlatform(): Promise<Platform> {
     name: 'tauri',
     cliProvider: hasClaude ? claudeProvider : undefined,
     library,
+    saves: {
+      list: () => invoke<SaveFileInfo[]>('saves_list'),
+      async read(name) {
+        const p = await paths();
+        const bytes = await new TauriFileSource(p.user, 'Paradox').read(`save games/${name}`);
+        if (!bytes) throw new Error(`The save ${name} could not be read.`);
+        return bytes;
+      },
+    },
+    maester: {
+      load: () => invoke<string>('maester_load'),
+      save: (json) => invoke('maester_save', { json }),
+    },
     async hostFetch(provider, url, init) {
       try {
         return await invoke<HostResponse>('host_fetch', { provider, url, method: init.method, headers: init.headers, body: init.body ?? null });

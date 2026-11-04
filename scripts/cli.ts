@@ -8,6 +8,8 @@
 //                            AI: names, words and arms via the local Claude Code CLI
 //   refine <file.txt> "<instruction>" [--out-dir dir]
 //                            AI: revise a pasted CoA script according to the instruction
+//   digest <save.ck3> [--json]
+//                            what the Maester would know from a save (no AI)
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -17,6 +19,8 @@ import { refineDesign } from '../src/core/ai/refine.ts';
 import { parseCoaFile } from '../src/core/coa/parse.ts';
 import { serializeCoa } from '../src/core/coa/serialize.ts';
 import { renderCoa } from '../src/core/render/render.ts';
+import { buildSaveDigest, digestToText } from '../src/core/save/digest.ts';
+import { SaveData, unpackSave } from '../src/core/save/save-file.ts';
 import { encodePng } from '../src/node/png.ts';
 import { loadPlaysets, openSession, pickPlayset } from '../src/node/paths.ts';
 import { ClaudeCliProvider } from '../src/node/providers/claude-cli.ts';
@@ -33,6 +37,7 @@ const { positionals, values } = parseArgs({
     'out-dir': { type: 'string', default: 'out' },
     model: { type: 'string' },
     'no-vision': { type: 'boolean', default: false },
+    json: { type: 'boolean', default: false },
   },
 });
 const [cmd, arg, arg2] = positionals;
@@ -143,6 +148,14 @@ switch (cmd) {
     await writeFile(join(dir, 'after.txt'), serializeCoa(r.coa, 'coa_refined'));
     console.log(`\n${r.note}\n→ ${dir}/before.png, after.png, after.txt (${((Date.now() - started) / 1000).toFixed(0)} s)`);
     for (const e of r.errors) console.warn(`warning: ${e}`);
+    break;
+  }
+  case 'digest': {
+    const started = Date.now();
+    const digest = buildSaveDigest(new SaveData(unpackSave(await readFile(arg ?? ''))), (k) => catalog.localization.get(k));
+    const text = digestToText(digest);
+    console.log(values.json ? JSON.stringify(digest, null, 2) : text);
+    console.error(`\n${text.length} characters, ${((Date.now() - started) / 1000).toFixed(1)} s`);
     break;
   }
   default:

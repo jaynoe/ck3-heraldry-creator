@@ -10,6 +10,16 @@ import type { WikiQuery } from '../../core/ai/canon.ts';
 import type { Playset } from '../../core/mods/playsets.ts';
 import type { ModSource } from '../../core/session.ts';
 
+/** A save game in the Paradox user folder. */
+export interface SaveFileInfo {
+  name: string;
+  /** Last change, in ms since 1970. */
+  modified: number;
+  size: number;
+  /** The start of the file as text; see parseSaveHead. */
+  head: string;
+}
+
 /** A newer release than the running one. */
 export interface AvailableUpdate {
   version: string;
@@ -35,6 +45,16 @@ export interface Platform {
     remove(provider: ProviderId): Promise<void>;
   };
   library: LibraryStore;
+  /** Save games of the player, newest first. */
+  saves: {
+    list(): Promise<SaveFileInfo[]>;
+    read(name: string): Promise<Uint8Array>;
+  };
+  /** The Maester's conversations, one JSON file like the library. */
+  maester: {
+    load(): Promise<string>;
+    save(json: string): Promise<void>;
+  };
   /** Stores built catalogs per playset (the user's cache folder). */
   cache: CacheStore;
   /** Installed CK3 version, part of the cache fingerprint ('' if unknown). */

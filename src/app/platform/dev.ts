@@ -8,7 +8,7 @@ import { joinPath } from '../../core/fs/types.ts';
 import { jsonLibrary } from '../../core/library.ts';
 import { readPlaysets, type Playset } from '../../core/mods/playsets.ts';
 import { HttpFileSource } from './http-fs.ts';
-import type { Platform } from './types.ts';
+import type { Platform, SaveFileInfo } from './types.ts';
 
 interface Paths {
   game: string;
@@ -47,6 +47,26 @@ export const devPlatform: Platform = {
   name: 'dev server',
   cliProvider: devProvider,
   library,
+  saves: {
+    list: async () => (await (await fetch('/api/saves')).json()) as SaveFileInfo[],
+    async read(name) {
+      const { user } = await paths();
+      const bytes = await new HttpFileSource(user, 'Paradox').read(`save games/${name}`);
+      if (!bytes) throw new Error(`The save ${name} could not be read.`);
+      return bytes;
+    },
+  },
+  maester: {
+    async load() {
+      const res = await fetch('/api/maester');
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? 'Loading the conversations failed');
+      return res.text();
+    },
+    async save(json) {
+      const res = await fetch('/api/maester', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json });
+      if (!res.ok) throw new Error('Saving the conversation failed');
+    },
+  },
   async hostFetch(provider, url, init) {
     const res = await fetch('/api/http', { method: 'POST', body: JSON.stringify({ provider, url, ...init }) });
     const data = (await res.json()) as HostResponse & { error?: string };

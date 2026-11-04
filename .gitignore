@@ -6,3 +6,6 @@ out/
 # Design workspace (FigCraft files, icon and logo drafts) stays local; some files embed
 # CoA renders from the game install. The app's own copies live in src/app/assets.
 design/
+
+# Local save games for developing the Maester (never commit: personal data, derived from game content)
+dev-saves/

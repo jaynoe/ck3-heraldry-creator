@@ -45,17 +45,22 @@ export interface LibraryStore {
  * other, so two quick saves cannot both read the old list and drop each other's entry.
  */
 export function jsonLibrary(load: () => Promise<string>, store: (json: string) => Promise<void>): LibraryStore {
+  return jsonStore<LibraryItem>(load, store);
+}
+
+/** The same for any list of items with an id; the newest save comes first. */
+export function jsonStore<T extends { id: string }>(load: () => Promise<string>, store: (json: string) => Promise<void>) {
   let queue: Promise<unknown> = Promise.resolve();
-  const list = async () => JSON.parse(await load()) as LibraryItem[];
-  const change = (update: (items: LibraryItem[]) => LibraryItem[]) => {
+  const list = async () => JSON.parse(await load()) as T[];
+  const change = (update: (items: T[]) => T[]) => {
     const run = queue.then(async () => store(JSON.stringify(update(await list()), null, 2)));
     queue = run.catch(() => {});
     return run;
   };
   return {
     list,
-    save: (item) => change((items) => [item, ...items.filter((i) => i.id !== item.id)]),
-    remove: (id) => change((items) => items.filter((i) => i.id !== id)),
+    save: (item: T) => change((items) => [item, ...items.filter((i) => i.id !== item.id)]),
+    remove: (id: string) => change((items) => items.filter((i) => i.id !== id)),
   };
 }
 
