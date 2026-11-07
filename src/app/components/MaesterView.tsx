@@ -164,7 +164,7 @@ export function MaesterView({
     }
   }
 
-  async function attach(files: Iterable<File>) {
+  async function attach(files: Iterable<Blob>) {
     setShotError(undefined);
     try {
       const read = await Promise.all([...files].map(readScreenshot));
@@ -335,10 +335,22 @@ export function MaesterView({
               attached={shots.length > 0}
               placeholder={canSee ? 'Ask your Maester, tell him what happened, or paste a screenshot…' : 'Ask your Maester, or tell him what happened…'}
               onPaste={(e) => {
-                const images = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'));
-                if (!canSee || !images.length) return;
-                e.preventDefault();
-                attach(images);
+                if (!canSee) return;
+                const data = e.clipboardData;
+                const isImage = (f: File | null): f is File => !!f?.type.startsWith('image/');
+                let images = [...data.files].filter(isImage);
+                if (!images.length) images = [...data.items].map((i) => (i.kind === 'file' ? i.getAsFile() : null)).filter(isImage);
+                if (images.length) {
+                  e.preventDefault();
+                  attach(images);
+                } else if (platform.clipboardImage && !data.getData('text/plain')) {
+                  // The desktop app's web view may hand over no file for a pasted image: ask the host.
+                  e.preventDefault();
+                  platform.clipboardImage().then(
+                    (blob) => (blob ? attach([blob]) : setShotError('There is no image on the clipboard.')),
+                    (err: Error) => setShotError(`The clipboard could not be read: ${err.message}`),
+                  );
+                }
               }}
               tools={
                 <>

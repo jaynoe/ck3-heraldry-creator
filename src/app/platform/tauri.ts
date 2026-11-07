@@ -9,6 +9,7 @@ import { joinPath, type DirEntry, type FileSource } from '../../core/fs/types.ts
 import { jsonLibrary } from '../../core/library.ts';
 import { readPlaysets, type Playset } from '../../core/mods/playsets.ts';
 import type { Platform, SaveFileInfo } from './types.ts';
+import { readImage } from '@tauri-apps/plugin-clipboard-manager';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
@@ -102,6 +103,17 @@ export async function createTauriPlatform(): Promise<Platform> {
     // The opener capability only allows AWOIAF and this repo's new-issue form.
     openUrl: (url) => openUrl(url),
     buildKind: async () => (await invoke<string | null>('build_kind')) ?? undefined,
+    // The capability allows reading images only, never text.
+    async clipboardImage() {
+      const image = await readImage().catch(() => undefined); // no image on the clipboard
+      if (!image) return undefined;
+      const [{ width, height }, rgba] = await Promise.all([image.size(), image.rgba()]);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+      return new Promise<Blob | undefined>((done) => canvas.toBlob((b) => done(b ?? undefined), 'image/png'));
+    },
     async checkUpdate() {
       const update = await check();
       if (!update) return undefined;

@@ -1,6 +1,6 @@
 [package]
 name = "heraldry-creator"
-version = "0.2.0"
+version = "0.2.1"
 description = "Coats of arms, house names and words for CK3 (AGOT)"
 authors = []
 license = "MIT"
@@ -30,3 +30,4 @@ dirs = "6"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 keyring = { version = "3", features = ["sync-secret-service", "crypto-rust", "windows-native", "apple-native"] }
 regex-lite = "0.1"
+tauri-plugin-clipboard-manager = "2"

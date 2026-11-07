@@ -70,6 +70,11 @@ export interface Platform {
   wikiQuery: WikiQuery;
   /** The running release bundle as named in the test report form ("Linux · AppImage"), if known. */
   buildKind(): Promise<string | undefined>;
+  /**
+   * The image on the system clipboard as PNG, for a paste that brought no image file along
+   * (WebKitGTK passes pasted images on to the page only in some versions). Only the desktop app has it.
+   */
+  clipboardImage?: () => Promise<Blob | undefined>;
   /** Looks for a newer release on GitHub; only the desktop app has it. */
   checkUpdate?: () => Promise<AvailableUpdate | undefined>;
 }

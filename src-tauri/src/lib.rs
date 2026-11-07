@@ -561,6 +561,7 @@ pub fn run() {
     tauri::Builder::default()
         // Opens AWOIAF source links and the test report form; the capability only allows those URLs.
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         // Updates: signed bundles from the latest GitHub release (endpoint and public key in tauri.conf.json).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())

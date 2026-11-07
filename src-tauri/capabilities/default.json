@@ -21,6 +21,7 @@
         }
       ]
     },
+    "clipboard-manager:allow-read-image",
     "updater:default",
     "process:allow-restart"
   ]
