@@ -78,6 +78,10 @@ export async function createTauriPlatform(): Promise<Platform> {
       load: () => invoke<string>('maester_load'),
       save: (json) => invoke('maester_save', { json }),
     },
+    citadel: {
+      load: () => invoke<string>('citadel_load'),
+      save: (json) => invoke('citadel_save', { json }),
+    },
     async hostFetch(provider, url, init) {
       try {
         return await invoke<HostResponse>('host_fetch', { provider, url, method: init.method, headers: init.headers, body: init.body ?? null });

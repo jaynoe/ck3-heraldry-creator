@@ -29,7 +29,7 @@ export function ideaSeed(idea: IdeaSnapshot): HouseSeed {
   };
 }
 
-/** What an idea can lead to, shared by Inspiration and Collection. */
+/** What an idea can lead to, shared by the Citadel and the Collection. */
 export interface IdeaActions {
   /** Open Generate with this idea. */
   onCreate: (seed: HouseSeed) => void;

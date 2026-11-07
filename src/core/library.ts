@@ -20,7 +20,7 @@ export interface SavedCoa {
   createdAt: string;
 }
 
-/** A run idea from Inspiration, saved as a snapshot so it stays readable with any playset. */
+/** A run idea from the Citadel, saved as a snapshot so it stays readable with any playset. */
 export interface SavedIdea {
   kind: 'idea';
   id: string;

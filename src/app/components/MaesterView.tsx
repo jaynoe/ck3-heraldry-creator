@@ -1,22 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { awoiafSource } from '../../core/ai/canon.ts';
+import type { IdeaSnapshot } from '../../core/ai/inspire.ts';
 import type { AiMode } from '../../core/ai/mode.ts';
 import type { LlmProvider } from '../../core/ai/provider.ts';
 import type { ProviderInfo } from '../../core/ai/providers/types.ts';
-import { jsonStore, newId } from '../../core/library.ts';
+import { isIdea, jsonStore, newId } from '../../core/library.ts';
 import { compactChat, digestChanges, maesterAnswer, newChat, readingGreeting, type MaesterChat, type MaesterMessage } from '../../core/maester/maester.ts';
 import { parseCoaFile } from '../../core/coa/parse.ts';
 import { armsFromHead, formatDate } from '../../core/save/digest.ts';
 import { parseSaveHead } from '../../core/save/save-file.ts';
+import type { CitadelChat } from '../../core/citadel.ts';
 import { useApp } from '../context.ts';
 import { SaveArchive } from '../maester/archive.ts';
+import { readScreenshot, type Screenshot } from '../maester/screenshot.ts';
 import type { SaveFileInfo } from '../platform/types.ts';
 import { ActionButton } from './ActionButton.tsx';
+import { ChatCompose, ChatMessage, Lightbox } from './ChatParts.tsx';
+import { houseLine, IdeaMeta } from './IdeaCard.tsx';
 import { CoaPreview } from './CoaPreview.tsx';
 import { EffortPicker } from './EffortPicker.tsx';
 import { ErrorLine, Icon, Spinner } from './Icon.tsx';
 import { MaesterAvatar } from './MaesterAvatar.tsx';
 import { ReportTestLink, TestTag } from './TestTag.tsx';
+
+const MAX_SHOTS = 3;
 
 /** A chat with the Maester about a running campaign; he knows it from a save. */
 export function MaesterView({
@@ -44,7 +51,15 @@ export function MaesterView({
   const [loadError, setLoadError] = useState<string>();
   const [openId, setOpenId] = useState<string>();
   const [picker, setPicker] = useState(false);
+  const [scenarioPicker, setScenarioPicker] = useState(false);
   const [draft, setDraft] = useState('');
+  const [shots, setShots] = useState<Screenshot[]>([]);
+  /** Which attached screenshot is open in the lightbox. */
+  const [shown, setShown] = useState<number>();
+  const [shotError, setShotError] = useState<string>();
+  /** The screenshots of the last message, kept in memory only, for "Try again". */
+  const sentShots = useRef<Screenshot[]>([]);
+  const filePicker = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<string>();
   const [error, setError] = useState<string>();
   /** The save that failed to read, so "Try again" reads it again instead of asking the AI. */
@@ -70,6 +85,7 @@ export function MaesterView({
 
   const chat = chats?.find((c) => c.id === openId);
   const noProvider = typeof provider === 'string';
+  const canSee = typeof provider !== 'string' && provider.supportsImages;
   const busy = step !== undefined;
   useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [chat?.id, chat?.messages.length, step]);
 
@@ -117,6 +133,14 @@ export function MaesterView({
     }
   }
 
+  /** Tells the Maester which scenario the lord set out to play. */
+  async function chooseScenario(idea: IdeaSnapshot, into: MaesterChat) {
+    const at = new Date().toISOString();
+    const message: MaesterMessage = { role: 'scenario', text: idea.title, at };
+    await put({ ...into, scenario: idea, title: into.notes || into.scenario ? into.title : idea.title, updatedAt: at, messages: [...into.messages, message] });
+    setScenarioPicker(false);
+  }
+
   /** Answers the last message of a chat. */
   async function answer(current: MaesterChat) {
     if (typeof provider === 'string') return;
@@ -128,8 +152,10 @@ export function MaesterView({
       const reply = await maesterAnswer(provider, compact, {
         records: (name) => archive.lookup(compact.file, name),
         wiki,
+        images: sentShots.current.map((s) => s.image),
         onStep: setStep,
       });
+      sentShots.current = [];
       await put({ ...compact, messages: [...compact.messages, reply], updatedAt: reply.at });
     } catch (e) {
       setError((e as Error).message);
@@ -138,11 +164,28 @@ export function MaesterView({
     }
   }
 
+  async function attach(files: Iterable<File>) {
+    setShotError(undefined);
+    try {
+      const read = await Promise.all([...files].map(readScreenshot));
+      setShots((old) => {
+        if (old.length + read.length > MAX_SHOTS) setShotError(`At most ${MAX_SHOTS} screenshots per message.`);
+        return [...old, ...read].slice(0, MAX_SHOTS);
+      });
+    } catch (e) {
+      setShotError((e as Error).message);
+    }
+  }
+
   async function send() {
     const text = draft.trim();
-    if (!chat || !text || busy) return;
+    if (!chat || (!text && !shots.length) || busy) return;
     const at = new Date().toISOString();
-    const next = { ...chat, updatedAt: at, messages: [...chat.messages, { role: 'lord' as const, text, at }] };
+    const images = shots.length ? shots.map((s) => s.url) : undefined;
+    const next = { ...chat, updatedAt: at, messages: [...chat.messages, { role: 'lord' as const, text, at, images }] };
+    sentShots.current = shots;
+    setShots([]);
+    setShotError(undefined);
     setDraft('');
     await put(next);
     await answer(next);
@@ -225,7 +268,7 @@ export function MaesterView({
               Talk with him about your campaign: ask for advice, tell him what happened. Let him read a save, now or later, and he knows your house without
               you having to explain anything.
             </p>
-            <p className="small faint">Only a summary of the save and the records he asks for go to your AI provider. Conversations stay on this computer.</p>
+            <p className="small faint">Only a summary of the save, the records he asks for and the screenshots you attach go to your AI provider. Conversations stay on this computer.</p>
             <ActionButton className="primary" action={start} labels={{ idle: 'Start a conversation', busy: 'Starting…', done: 'Started' }} />
           </div>
         )}
@@ -236,6 +279,9 @@ export function MaesterView({
               <ChatArms arms={armsOf(chat)} size={40} />
               <h2 className="heading">{chat.title}</h2>
               <span className="spacer" />
+              <button className="small secondary" disabled={busy} onClick={() => setScenarioPicker(true)}>
+                <Icon name="scroll" size={14} /> {chat.scenario ? 'Change scenario' : 'Add a scenario'}
+              </button>
               <button className="small secondary" disabled={busy} onClick={() => setPicker(true)}>
                 <Icon name="refresh" size={14} /> {chat.notes ? 'Read a newer save' : 'Read a save'}
               </button>
@@ -264,27 +310,60 @@ export function MaesterView({
               )}
               <div ref={end} />
             </div>
-            <div className="maester-compose">
-              <textarea
-                rows={3}
-                value={draft}
-                placeholder="Ask your Maester, or tell him what happened…"
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-              />
-              <button className="primary" disabled={busy || noProvider || !draft.trim()} onClick={send} title="Ctrl+Enter">
-                {busy ? 'One moment…' : 'Send'}
-              </button>
-            </div>
+            {(shots.length > 0 || shotError) && (
+              <div className="maester-attached">
+                {shots.map((s, i) => (
+                  <span key={i} className="maester-attached-shot">
+                    <button className="shot-open" title="Show larger" onClick={() => setShown(i)}>
+                      <img src={s.url} alt={`Screenshot ${i + 1} to send`} />
+                    </button>
+                    <button className="icon-btn" title="Remove this screenshot" aria-label="Remove this screenshot" onClick={() => setShots((old) => old.filter((_, n) => n !== i))}>
+                      <Icon name="close" size={14} />
+                    </button>
+                  </span>
+                ))}
+                {shotError && <ErrorLine>{shotError}</ErrorLine>}
+              </div>
+            )}
+            {shown !== undefined && shots.length > 0 && <Lightbox images={shots.map((s) => s.url)} start={Math.min(shown, shots.length - 1)} onClose={() => setShown(undefined)} />}
+            <ChatCompose
+              value={draft}
+              onChange={setDraft}
+              onSend={send}
+              busy={busy}
+              disabled={noProvider}
+              attached={shots.length > 0}
+              placeholder={canSee ? 'Ask your Maester, tell him what happened, or paste a screenshot…' : 'Ask your Maester, or tell him what happened…'}
+              onPaste={(e) => {
+                const images = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'));
+                if (!canSee || !images.length) return;
+                e.preventDefault();
+                attach(images);
+              }}
+              tools={
+                <>
+                  <input
+                    ref={filePicker}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => {
+                      if (e.target.files) attach(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button className="small secondary" disabled={busy || !canSee || shots.length >= MAX_SHOTS} title={canSee ? 'Attach screenshots, or paste one into the box' : 'This AI provider cannot take images'} onClick={() => filePicker.current?.click()}>
+                    <Icon name="plus" size={14} /> Screenshot
+                  </button>
+                </>
+              }
+            />
           </>
         )}
       </section>
 
+      {scenarioPicker && chat && <ScenarioPicker onClose={() => setScenarioPicker(false)} onChoose={(idea) => chooseScenario(idea, chat)} />}
       {picker && chat && <SavePicker onClose={() => setPicker(false)} onRead={(save) => void read(save, chat)} />}
     </div>
   );
@@ -304,7 +383,6 @@ function ChatArms({ arms, size }: { arms: MaesterChat['arms']; size: number }) {
 }
 
 function Message({ message: m, arms }: { message: MaesterMessage; arms: MaesterChat['arms'] }) {
-  const { platform } = useApp();
   if (m.role === 'reading') {
     return (
       <div className="maester-reading">
@@ -322,34 +400,63 @@ function Message({ message: m, arms }: { message: MaesterMessage; arms: MaesterC
       </div>
     );
   }
-  return (
-    <article className="maester-message" data-role={m.role}>
-      {m.role === 'lord' ? <ChatArms arms={arms} size={48} /> : <MaesterAvatar />}
-      <div className="maester-bubble">
-      <span className="label">{m.role === 'lord' ? 'You' : 'Maester'}</span>
-      <p className="maester-text">{m.text}</p>
-      {(m.consulted || m.sources) && (
-        <p className="small muted">
-          {m.consulted && `Consulted the records of ${m.consulted.join(', ')}. `}
-          {m.sources && 'From A Wiki of Ice and Fire: '}
-          {m.sources?.map((s, i) => (
-            <span key={s.url}>
-              {i > 0 && ', '}
-              <a
-                href={s.url}
-                onClick={(e) => {
-                  e.preventDefault();
-                  platform.openUrl(s.url);
-                }}
-              >
-                {s.title}
-              </a>
-            </span>
-          ))}
+  if (m.role === 'scenario') {
+    return (
+      <div className="maester-reading">
+        <p>
+          <Icon name="scroll" size={16} /> Your Maester knows the plan: {m.text}
         </p>
-      )}
       </div>
-    </article>
+    );
+  }
+  return <ChatMessage message={m} speaker="Maester" avatar={<MaesterAvatar />} lord={<ChatArms arms={arms} size={48} />} />;
+}
+
+/** The scenarios to choose from: those saved in the Collection, then those of the Citadel's conversations. */
+function ScenarioPicker({ onChoose, onClose }: { onChoose: (idea: IdeaSnapshot) => Promise<void>; onClose: () => void }) {
+  const { platform } = useApp();
+  const [ideas, setIdeas] = useState<IdeaSnapshot[]>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    Promise.all([platform.library.list(), platform.citadel.load()]).then(
+      ([library, citadel]) => {
+        const all = [...library.filter(isIdea).map((i) => i.idea), ...(JSON.parse(citadel) as CitadelChat[]).flatMap((c) => c.ideas)];
+        setIdeas(all.filter((idea, i) => all.findIndex((o) => o.title === idea.title) === i));
+      },
+      (e: Error) => setError(e.message),
+    );
+  }, [platform]);
+  return (
+    <div className="overlay">
+      <div className="dialog" role="dialog" aria-modal="true" style={{ width: 'min(680px, 100%)' }}>
+        <div className="dialog-head">
+          <h2 className="heading">Which scenario do you set out on?</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <p className="small muted">Your Maester keeps it in mind as your plan. What really happened still comes from your saves.</p>
+        {error && <ErrorLine>{error}</ErrorLine>}
+        {!ideas && !error && (
+          <p className="small muted">
+            <Spinner size={14} /> Looking for scenarios…
+          </p>
+        )}
+        {ideas?.length === 0 && <p className="muted">No scenarios yet. Draw some up in the Citadel, then come back.</p>}
+        <div className="stack maester-saves" style={{ gap: 6 }}>
+          {ideas?.map((idea) => (
+            <div key={idea.title} className="row nowrap maester-save">
+              <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>
+                <span className="radio-title">{idea.title}</span>
+                <IdeaMeta idea={idea} />
+                <span className="small muted">{houseLine(idea)}</span>
+              </span>
+              <ActionButton className="small" action={() => onChoose(idea)} labels={{ idle: 'Choose', busy: 'Choosing…', done: 'Chosen' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

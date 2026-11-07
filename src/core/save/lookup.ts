@@ -69,6 +69,10 @@ export class SaveRecords {
         return text ? [`${year(m.date)}: ${text}`] : [];
       })
       .slice(-10);
+    const artifacts = this.save
+      .entriesContaining('artifacts', `owner=${id}\n`, 2, 'artifacts')
+      .slice(0, 12)
+      .flatMap((a) => str(this.save.entry('artifacts', a, 2, 'artifacts'), 'name') ?? []);
     const lines = [
       `Record of ${personLine(p)}${p.isDragon ? ' (a dragon)' : ''}`,
       p.deathReason && `Death: ${p.deathReason}.`,
@@ -77,6 +81,7 @@ export class SaveRecords {
       held.length > 0 && `Holds: ${held.join(', ')}`,
       landed && `Troops: ${Math.round(num(landed, 'strength') ?? 0)}`,
       employer !== undefined && `At the court of ${reader.nameOf(employer)}`,
+      artifacts.length > 0 && `Artifacts: ${artifacts.join(', ')}`,
       `Parents: ${reader.parentsOf(id).map(reader.nameOf).join(', ') || 'unknown'}`,
       spouses.length > 0 && `Spouses: ${spouses.map(reader.nameOf).join(', ')}`,
       nums(fam, 'child').length > 0 && `Children: ${nums(fam, 'child').map(reader.nameOf).join(', ')}`,

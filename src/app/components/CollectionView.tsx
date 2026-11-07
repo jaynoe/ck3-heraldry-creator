@@ -206,7 +206,7 @@ function IdeaList({ ideas, onOpen }: { ideas: SavedIdea[]; onOpen: (i: SavedIdea
     return (
       <div className="empty">
         <Icon name="scroll" size={32} />
-        <p>No saved run ideas yet. In Inspiration, press “Save idea” on an idea you like.</p>
+        <p>No saved run ideas yet. In the Citadel, press “Save idea” on an idea you like.</p>
       </div>
     );
   return (

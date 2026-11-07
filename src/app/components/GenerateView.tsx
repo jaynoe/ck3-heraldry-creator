@@ -50,7 +50,7 @@ export function GenerateView({
   onSaved: () => void;
   mode: AiMode;
   onMode: (m: AiMode) => void;
-  /** An idea handed over from Inspiration, put into the idea field. */
+  /** An idea handed over from the Citadel, put into the idea field. */
   seed?: HouseSeed & { n: number };
 }) {
   const { platform, session, ctx, playset } = useApp();

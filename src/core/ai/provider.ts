@@ -8,12 +8,17 @@ export interface JsonRequest {
   prompt: string;
   /** JSON Schema the response must satisfy. */
   schema: object;
-  /** PNG images shown before the prompt text (only for providers with vision support). */
-  images?: { mediaType: 'image/png'; base64: string }[];
+  /** Images shown before the prompt text (only for providers with vision support). */
+  images?: RequestImage[];
   /** How hard the model should think. Providers map it to their own setting or ignore it. */
   effort?: Effort;
   /** Model override; only the Claude CLI provider uses it (API providers take the model from Settings). */
   model?: string;
+}
+
+export interface RequestImage {
+  mediaType: 'image/png' | 'image/jpeg';
+  base64: string;
 }
 
 export type Effort = 'low' | 'medium' | 'high';

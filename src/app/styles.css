@@ -2004,7 +2004,34 @@ main {
   color: var(--accent);
 }
 
-/* ---------- Maester ---------- */
+/* ---------- Maester and Citadel ---------- */
+.citadel-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.citadel-views {
+  flex: none;
+  width: 280px;
+}
+.citadel-starters {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding-left: 68px;
+}
+.citadel-starters button {
+  height: auto;
+  min-height: 32px;
+  padding: 6px var(--space-3);
+  white-space: normal;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 14px;
+}
 .maester-chats {
   min-height: 0;
 }
@@ -2163,6 +2190,100 @@ main {
 }
 .maester-compose textarea {
   flex: 1;
+}
+.maester-compose-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.maester-compose-tools button {
+  width: 100%;
+}
+.maester-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.maester-shots img {
+  display: block;
+  max-width: 100%;
+  max-height: 200px;
+  border: 1px solid var(--border);
+}
+/* A screenshot that opens in the lightbox */
+.shot-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  max-width: 100%;
+}
+.shot-open:hover img,
+.shot-open:focus-visible img {
+  border-color: var(--accent);
+}
+.lightbox {
+  z-index: 120;
+  flex-direction: column;
+  gap: var(--space-3);
+  cursor: zoom-out;
+}
+.lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 96px);
+  object-fit: contain;
+  border: var(--border-thick) solid var(--border);
+  background: var(--bg);
+  cursor: default;
+}
+.lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--bg);
+}
+.lightbox-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: default;
+}
+.lightbox-nav .prev svg {
+  transform: rotate(90deg);
+}
+.lightbox-nav .next svg {
+  transform: rotate(-90deg);
+}
+.maester-attached {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 880px;
+  margin-inline: auto;
+  padding-top: var(--space-2);
+}
+.maester-attached-shot {
+  position: relative;
+  display: block;
+}
+.maester-attached-shot img {
+  display: block;
+  height: 72px;
+  border: 1px solid var(--border);
+}
+.maester-attached-shot .icon-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--bg);
 }
 .maester-save {
   padding: var(--space-2) var(--space-3);

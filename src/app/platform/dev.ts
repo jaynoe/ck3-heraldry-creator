@@ -67,6 +67,17 @@ export const devPlatform: Platform = {
       if (!res.ok) throw new Error('Saving the conversation failed');
     },
   },
+  citadel: {
+    async load() {
+      const res = await fetch('/api/citadel');
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? 'Loading the conversations failed');
+      return res.text();
+    },
+    async save(json) {
+      const res = await fetch('/api/citadel', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: json });
+      if (!res.ok) throw new Error('Saving the conversation failed');
+    },
+  },
   async hostFetch(provider, url, init) {
     const res = await fetch('/api/http', { method: 'POST', body: JSON.stringify({ provider, url, ...init }) });
     const data = (await res.json()) as HostResponse & { error?: string };

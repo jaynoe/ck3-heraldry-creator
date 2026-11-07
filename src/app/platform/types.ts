@@ -55,6 +55,11 @@ export interface Platform {
     load(): Promise<string>;
     save(json: string): Promise<void>;
   };
+  /** The Citadel's conversations, stored the same way. */
+  citadel: {
+    load(): Promise<string>;
+    save(json: string): Promise<void>;
+  };
   /** Stores built catalogs per playset (the user's cache folder). */
   cache: CacheStore;
   /** Installed CK3 version, part of the cache fingerprint ('' if unknown). */

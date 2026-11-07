@@ -2,10 +2,11 @@
 // needs more he asks for records from the save or articles from A Wiki of Ice and Fire, and answers once he has them.
 
 import type { WikiArticle } from '../ai/canon.ts';
-import type { LlmProvider } from '../ai/provider.ts';
+import { ideaToText, type IdeaSnapshot } from '../ai/inspire.ts';
+import type { LlmProvider, RequestImage } from '../ai/provider.ts';
 
 export interface MaesterMessage {
-  role: 'lord' | 'maester' | 'reading';
+  role: 'lord' | 'maester' | 'reading' | 'scenarios' | 'scenario';
   text: string;
   at: string;
   /** Records the Maester looked at for this answer. */
@@ -17,9 +18,22 @@ export interface MaesterMessage {
   saveDate?: string;
   /** For a reading: what changed since the reading before. */
   changes?: string[];
+  /** For scenarios: their titles. */
+  titles?: string[];
+  /** The screenshots the lord attached, as JPEG data URLs (at most 1568 px, as sent). Older chats hold 360 px previews. */
+  images?: string[];
 }
 
-export interface MaesterChat {
+/** What every advisor's conversation has. */
+export interface ChatLog {
+  /** What older messages said, once the conversation got long. */
+  summary?: string;
+  /** Messages before this index are covered by the summary. */
+  summarized?: number;
+  messages: MaesterMessage[];
+}
+
+export interface MaesterChat extends ChatLog {
   id: string;
   title: string;
   createdAt: string;
@@ -30,11 +44,8 @@ export interface MaesterChat {
   notes: string;
   /** The arms of the lord's house, from the last save read. */
   arms?: { script: string; frame?: string };
-  /** What older messages said, once the conversation got long. */
-  summary?: string;
-  /** Messages before this index are covered by the summary. */
-  summarized?: number;
-  messages: MaesterMessage[];
+  /** The scenario the lord set out to play, if one was chosen. */
+  scenario?: IdeaSnapshot;
 }
 
 const SYSTEM = `You are the Maester of a noble house in a Crusader Kings III campaign with the A Game of Thrones mod. You serve the player's ruler as advisor, chronicler and companion.
@@ -46,6 +57,7 @@ Truth:
 - This campaign has long since left the canon of the books. For what happens in the campaign the save counts, even against the wiki. For lore (history, places, customs of the world) A Wiki of Ice and Fire counts.
 - The lord can be wrong or forget things. Check what he says against your notes and the records. When it does not fit, say so plainly before you build on it: a power he left out, a number that is off, someone he thinks alive who is dead. The lists of independent powers in your notes are complete for the lands he is active in, so use them when he asks who stands in his way. Respect his truces and allies when you advise on war.
 - Mark your own opinions and guesses as such. The player may tell you things the save cannot show, such as plans and reasons: believe and remember them.
+- The lord may attach screenshots of the game. They reach you only with the message they belong to, so say what matters in them. If they show something newer than your notes, trust them for that, and say if you cannot read something. If you need one again, ask for it.
 - You only know the state of the last save you read; if the lord seems further along, ask him to let you read a newer one. If you have read no save yet, you know only what the lord tells you, and may offer to read one ("Read a save" above the conversation).
 
 Consulting: to look something up, return its name in "consult" (a person with their house if known, "House X", or a title) or an article title in "wiki", with an empty "reply". You get the results and answer then. Consult rather than guess, but only when you need it: at most 3 names at a time. When you can answer, return the answer in "reply" and leave both lists empty.`;
@@ -68,7 +80,7 @@ const MAX_NAMES = 3;
 const KEEP_CHARS = 30_000;
 const KEEP_MESSAGES = 10;
 
-function conversation(chat: MaesterChat): string {
+export function conversation(chat: ChatLog, advisor = 'Maester'): string {
   return chat.messages
     .slice(chat.summarized ?? 0)
     .map((m) => {
@@ -76,7 +88,10 @@ function conversation(chat: MaesterChat): string {
         const changes = m.changes?.length ? ` What changed since the last reading:\n${m.changes.join('\n')}` : '';
         return `[You read the save ${m.file} and updated your notes.${changes}]`;
       }
-      return `${m.role === 'lord' ? 'Lord' : 'Maester'}: ${m.text}`;
+      if (m.role === 'scenario') return `[The lord chose the scenario "${m.text}".]`;
+      if (m.role === 'scenarios') return `[You drew up these scenarios:\n${m.text}]`;
+      const shots = m.images?.length ? ` [attached ${m.images.length === 1 ? 'a screenshot' : `${m.images.length} screenshots`}]` : '';
+      return `${m.role === 'lord' ? 'Lord' : advisor}: ${m.text}${shots}`;
     })
     .join('\n\n');
 }
@@ -85,40 +100,72 @@ export interface MaesterTools {
   /** Looks up a person, house or title in the save. */
   records: (name: string) => Promise<string>;
   wiki?: (titles: string[]) => Promise<WikiArticle[]>;
+  /** Screenshots attached to the last message. */
+  images?: RequestImage[];
   /** What the Maester is doing right now, for the UI. */
   onStep?: (text: string) => void;
 }
 
 /** Answers the last message of the chat, consulting records and the wiki on the way. */
-export async function maesterAnswer(provider: LlmProvider, chat: MaesterChat, tools: MaesterTools): Promise<MaesterMessage> {
+export function maesterAnswer(provider: LlmProvider, chat: MaesterChat, tools: MaesterTools): Promise<MaesterMessage> {
+  return advisorAnswer(provider, chat, {
+    ...tools,
+    records: chat.notes ? tools.records : undefined,
+    label: 'maester',
+    system: SYSTEM,
+    who: 'Your Maester',
+    advisor: 'Maester',
+    background: [
+      chat.notes ? `Your notes on the campaign:\n${chat.notes}` : 'You have not read a save of this campaign yet, so you have no notes and no records to consult.',
+      chat.scenario && `The scenario the lord set out to play. It is his plan, not what happened: for events the save counts.\n${ideaToText(chat.scenario)}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+  });
+}
+
+export interface Advisor extends Omit<MaesterTools, 'records'> {
+  records?: MaesterTools['records'];
+  label: string;
+  system: string;
+  /** How the UI calls the advisor, e.g. "Your Maester". */
+  who: string;
+  /** How the conversation calls the advisor. */
+  advisor: string;
+  /** What the advisor always knows. */
+  background: string;
+}
+
+/** The answer loop of an advisor: it may ask for records and wiki articles first. */
+export async function advisorAnswer(provider: LlmProvider, chat: ChatLog, tools: Advisor): Promise<MaesterMessage> {
   const consulted: string[] = [];
   const sources = new Map<string, { title: string; url: string }>();
   const found: string[] = [];
   for (let round = 0; ; round++) {
     const last = round >= MAX_ROUNDS;
     const prompt = [
-      chat.notes ? `Your notes on the campaign:\n${chat.notes}` : 'You have not read a save of this campaign yet, so you have no notes and no records to consult.',
+      tools.background,
       chat.summary && `What was said earlier in this conversation:\n${chat.summary}`,
-      `The conversation:\n${conversation(chat)}`,
+      `The conversation:\n${conversation(chat, tools.advisor)}`,
       found.length > 0 && `What you looked up for this answer:\n${found.join('\n\n')}`,
       last ? 'Answer the lord now with what you have; do not consult any further.' : 'Answer the lord, or consult first if you need to.',
     ]
       .filter(Boolean)
       .join('\n\n');
-    tools.onStep?.(round === 0 ? 'Your Maester considers the matter…' : 'Your Maester weighs what he found…');
-    const r = (await provider.generateJson({ label: 'maester', system: SYSTEM, prompt, schema: SCHEMA })) as { reply: string; consult: string[]; wiki: string[] };
-    const names = last || !chat.notes ? [] : r.consult.slice(0, MAX_NAMES);
+    tools.onStep?.(round === 0 ? `${tools.who} considers the matter…` : `${tools.who} weighs what he found…`);
+    const r = (await provider.generateJson({ label: tools.label, system: tools.system, prompt, schema: SCHEMA, images: tools.images?.length ? tools.images : undefined })) as { reply: string; consult: string[]; wiki: string[] };
+    const names = last || !tools.records ? [] : r.consult.slice(0, MAX_NAMES);
     const articles = last || !tools.wiki ? [] : r.wiki.slice(0, MAX_NAMES);
     if (!names.length && !articles.length) {
       return { role: 'maester', text: r.reply.trim(), at: new Date().toISOString(), consulted: consulted.length ? consulted : undefined, sources: sources.size ? [...sources.values()] : undefined };
     }
     for (const name of names) {
-      tools.onStep?.(`Your Maester sends for the records of ${name}…`);
-      found.push(await tools.records(name));
+      tools.onStep?.(`${tools.who} sends for the records of ${name}…`);
+      found.push(await tools.records!(name));
       consulted.push(name);
     }
     if (articles.length) {
-      tools.onStep?.('Your Maester consults A Wiki of Ice and Fire…');
+      tools.onStep?.(`${tools.who} consults A Wiki of Ice and Fire…`);
       try {
         for (const a of await tools.wiki!(articles)) {
           found.push(`From A Wiki of Ice and Fire, "${a.title}":\n${a.extract}`);
@@ -154,15 +201,15 @@ export function newChat(id: string): MaesterChat {
 }
 
 /** Once a conversation is long, older messages move into a summary, because every message resends the conversation. */
-export async function compactChat(provider: LlmProvider, chat: MaesterChat): Promise<MaesterChat> {
+export async function compactChat<T extends ChatLog>(provider: LlmProvider, chat: T): Promise<T> {
   const from = chat.summarized ?? 0;
   const open = chat.messages.slice(from);
   if (open.length <= KEEP_MESSAGES || open.reduce((n, m) => n + m.text.length, 0) < KEEP_CHARS) return chat;
   const until = chat.messages.length - KEEP_MESSAGES;
   const old = conversation({ ...chat, messages: chat.messages.slice(0, until) });
   const r = (await provider.generateJson({
-    label: 'maester summary',
-    system: 'You keep the notes of a Maester in a Crusader Kings III campaign.',
+    label: 'conversation summary',
+    system: 'You keep the notes of a Maester in a Crusader Kings III game.',
     schema: SUMMARY_SCHEMA,
     effort: 'low',
     prompt: `${chat.summary ? `Earlier summary:\n${chat.summary}\n\n` : ''}Conversation:\n${old}\n\nSummarise in a few short paragraphs what the lord told you (plans, reasons, wishes, events), what you advised and what was decided. Keep names and dates.`,

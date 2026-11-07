@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Catalog } from '../src/core/catalog/catalog.ts';
 import { moreNames, moreWords } from '../src/core/ai/generate.ts';
 import { isSafeModelName, withRequestOptions } from '../src/core/ai/mode.ts';
-import { cleanWords, ideaToHouseIdea, inspireRuns, snapshotIdea } from '../src/core/ai/inspire.ts';
+import { cleanWords, ideaToHouseIdea, inspireRuns, snapshotIdea, type IdeaSnapshot } from '../src/core/ai/inspire.ts';
+import { chatTitle, citadelAnswer, citadelBrief, citadelRecord, newCitadelChat, scenariosMessage } from '../src/core/citadel.ts';
 import type { JsonRequest, LlmProvider } from '../src/core/ai/provider.ts';
 import { searchEmblems, type EmblemDoc } from '../src/core/ai/search.ts';
 import { coaToSpec, specToCoa, validateSpec, type DesignSpec } from '../src/core/ai/spec.ts';
@@ -163,7 +164,7 @@ describe('run inspiration', () => {
         }
       ),
     } as LlmProvider;
-    const { ideas } = await inspireRuns(provider, catalog, { playstyle: 'small houses, ruins', shown: ['Old idea'] });
+    const { ideas } = await inspireRuns(provider, catalog, { conversation: 'Lord: small houses, ruins', shown: ['Old idea'] });
     const prompt = requests[0]!.prompt;
     expect(prompt).toContain('agot_bm_8259: 258 AC "The Ninepenny Kings"');
     expect(prompt).toContain('Free start dates without featured characters exist from -101 AC');
@@ -224,5 +225,49 @@ describe('canon check against AWOIAF', () => {
     const offline = await inspireRuns(provider, catalog, { canon: async () => Promise.reject(new Error('offline')), checkCanon: true });
     expect(offline.ideas[0]!.canonCheck).toBe('unreachable');
     expect(offline.ideas[0]!.notes.at(-1)).toContain('could not be reached');
+  });
+});
+
+describe('the Citadel', () => {
+  const catalog = {
+    coas: new Map([['dynn_Stark', {}], ['house_Karstark', {}]]),
+    dynasties: new Map([
+      ['dynn_Stark', { key: 'dynn_Stark', name: 'Stark', group: 'north', culture: 'northman', mottos: ['Winter is Coming'] }],
+      ['house_Karstark', { key: 'house_Karstark', name: 'Karstark', group: 'north', mottos: [], dynasty: 'dynn_Stark' }],
+    ]),
+    bookmarks: [{ key: 'bm_robert', name: "Robert's Rebellion", description: 'A war.', startDate: '8282.1.1', characters: [{ name: 'Rickard', dynasty: 'dynn_Stark', title: 'Winterfell' }] }],
+    gameRules: [{ key: 'agot_shattered', name: 'AGOT: Shattered World', options: [{ key: 'off', name: 'Off' }, { key: 'counties', name: 'Counties' }] }],
+  } as unknown as Catalog;
+
+  it('finds houses, bookmarks and rules in the playset, and admits what it does not know', () => {
+    const stark = citadelRecord(catalog, 'House Stark');
+    expect(stark).toContain('Region: north');
+    expect(stark).toContain('Winter is Coming');
+    expect(stark).toContain('Branches: Karstark');
+    expect(stark).toContain('282 AC "Robert\'s Rebellion"');
+    expect(citadelRecord(catalog, 'Karstark')).toContain('A branch of House Stark');
+    expect(citadelRecord(catalog, "Robert's Rebellion")).toContain('Featured: Rickard, Stark, Winterfell');
+    expect(citadelRecord(catalog, 'Shattered World')).toContain('Off, Counties');
+    expect(citadelRecord(catalog, 'Star')).toContain('Stark');
+    expect(citadelRecord(catalog, 'Nowhere')).toContain('No record');
+  });
+
+  it('answers with what it looked up, and tells the model about scenarios already drawn up', async () => {
+    const prompts: string[] = [];
+    const answers = [{ reply: '', consult: ['Stark'], wiki: [] }, { reply: 'Winter suits you.', consult: [], wiki: [] }];
+    const provider = { generateJson: async (r: { prompt: string }) => (prompts.push(r.prompt), answers.shift()) } as unknown as LlmProvider;
+    const chat = newCitadelChat('x');
+    chat.messages.push({ role: 'lord', text: 'Ein Stark-Bastard?', at: '' }, scenariosMessage([{ title: 'Old tale', concept: 'Go north.' } as IdeaSnapshot]));
+    const reply = await citadelAnswer(provider, chat, catalog, {});
+    expect(reply).toMatchObject({ text: 'Winter suits you.', consulted: ['Stark'] });
+    expect(prompts[0]).toContain('bm_robert');
+    expect(prompts[0]).toContain('1. Old tale: Go north.');
+    expect(prompts[1]).toContain('Record of House Stark');
+    expect(citadelBrief(chat)).toContain('Lord: Ein Stark-Bastard?');
+  });
+
+  it('names a chat after the first thing said', () => {
+    expect(chatTitle('Sea Dragon Point\nmore')).toBe('Sea Dragon Point');
+    expect(chatTitle('x'.repeat(60))).toHaveLength(49);
   });
 });

@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { IdeaSnapshot } from '../src/core/ai/inspire.ts';
+import type { LlmProvider } from '../src/core/ai/provider.ts';
 import { maesterAnswer, newChat, readingGreeting } from '../src/core/maester/maester.ts';
-import { armsFromHead, buildSaveDigest, cleanText, digestToText, saveArms } from '../src/core/save/digest.ts';
+import { SaveRecords } from '../src/core/save/lookup.ts';
+import { armsFromHead, buildSaveDigest, cleanText, digestToText, saveArms, saveReader } from '../src/core/save/digest.ts';
 import { SaveData, SaveFormatError, unpackSave } from '../src/core/save/save-file.ts';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
@@ -117,6 +120,24 @@ character_memory_manager={
 \t\t\tcreation_date=8251.1.1
 \t\t}
 \t}
+}
+artifacts={
+	artifacts={
+		70={
+			name="Red Dragon Egg"
+			modifiers={ dragon_egg_modifier }
+			owner=1
+		}
+		71={
+			name="Obsidian Dragon Egg"
+			modifiers={ dud_egg_modifier }
+			owner=4
+		}
+		72={
+			name="Old Sword"
+			owner=1
+		}
+	}
 }
 relations={
 	active_relations={ {
@@ -282,8 +303,13 @@ describe('save files', () => {
     // Myr is held by an ally, so it stays although the lord has no land abroad.
     expect(text).toMatch(/All other independent powers: Essos and other lands\n- Myr: /);
     expect(d.distant).toEqual([]);
+    expect(text).toContain('Held by your lord: Red Dragon Egg');
+    expect(text).toMatch(/Elsewhere: Obsidian Dragon Egg \(petrified\), held by /);
+    expect(text).not.toContain('Old Sword');
     // A title without land is no power.
     expect(text).not.toContain('Harrenhal');
+    const save = new SaveData(bytes(GAMESTATE));
+    expect(new SaveRecords(save, saveReader(save)).lookup('Jacaerys')).toContain('Artifacts: Red Dragon Egg, Old Sword');
     const arms = saveArms(new SaveData(bytes(GAMESTATE)));
     expect(arms).toMatchObject({ frame: 'house_frame_val1', script: expect.stringContaining('acs_targaryen.dds') });
     expect(armsFromHead(GAMESTATE)).toEqual(arms);
@@ -326,6 +352,36 @@ describe('the Maester without a save', () => {
     expect(records).toBe(0);
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain('You have not read a save');
+  });
+
+  it('knows the chosen scenario as the plan, with or without a save', async () => {
+    const prompts: string[] = [];
+    const provider = { generateJson: async (r: { prompt: string }) => (prompts.push(r.prompt), { reply: 'Very well.', consult: [], wiki: [] }) } as unknown as LlmProvider;
+    const scenario = { title: 'The Warg King Returns', concept: 'Rebuild the Point.', canon: '', fit: '', startNote: 'Free start', region: 'north', house: { kind: 'new', name: 'Wargholt' }, rules: [], sigil: '', words: '', catch: '', difficulty: 'hard', notes: [] } as IdeaSnapshot;
+    const chat = newChat('x');
+    chat.scenario = scenario;
+    chat.messages.push({ role: 'scenario', text: scenario.title, at: '' }, { role: 'lord', text: 'Was nun?', at: '' });
+    await maesterAnswer(provider, chat, { records: async () => '' });
+    expect(prompts[0]).toContain('The scenario the lord set out to play');
+    expect(prompts[0]).toContain('Concept: Rebuild the Point.');
+    expect(prompts[0]).toContain('You have not read a save');
+    expect(prompts[0]).toContain('[The lord chose the scenario "The Warg King Returns".]');
+  });
+
+  it('shows screenshots with their own message in every round, and later only notes them', async () => {
+    const requests: { prompt: string; images?: unknown[] }[] = [];
+    const answers = [{ reply: '', consult: ['Daerella'], wiki: [] }, { reply: 'I see it.', consult: [], wiki: [] }];
+    const provider = { generateJson: async (r: { prompt: string; images?: unknown[] }) => (requests.push(r), answers.shift()) } as unknown as LlmProvider;
+    const chat = newChat('x');
+    chat.notes = 'Notes';
+    chat.messages.push({ role: 'lord', text: '', at: '', images: ['data:image/jpeg;base64,x'] });
+    const image = { mediaType: 'image/jpeg' as const, base64: 'abc' };
+    await maesterAnswer(provider, chat, { records: async () => 'Record', images: [image] });
+    expect(requests.map((r) => r.images)).toEqual([[image], [image]]);
+    expect(requests[0]!.prompt).toContain('Lord:  [attached a screenshot]');
+    expect(requests[0]!.prompt).not.toContain('data:image');
+    await maesterAnswer({ ...provider, generateJson: async (r: { images?: unknown[] }) => (requests.push(r as never), { reply: 'Ok', consult: [], wiki: [] }) } as LlmProvider, chat, { records: async () => '' });
+    expect(requests.at(-1)!.images).toBeUndefined();
   });
 
   it('greets by the address of the save after reading it', () => {

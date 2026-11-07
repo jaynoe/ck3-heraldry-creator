@@ -1,31 +1,13 @@
-// Inspiration for a new campaign ("run"): a few concrete starting ideas, grounded in the playset's
-// own bookmarks, regions, houses and game rules. One call, text only; no follow-up conversation.
+// Scenarios for a new campaign ("run"): a few concrete starting ideas, grounded in the playset's own bookmarks,
+// regions, houses and game rules, drawn up from a conversation in the Citadel. One call, text only.
 
 import { bookmarkYear, type Bookmark, type Catalog, type Dynasty, type GameRule } from '../catalog/catalog.ts';
 import { AWOIAF, articlesFor, type CanonSource, type WikiArticle } from './canon.ts';
 import type { LlmProvider } from './provider.ts';
 
-export type StartKind = 'any' | 'minor' | 'fallen' | 'new' | 'cadet' | 'landless';
-
-export const START_KINDS: Record<StartKind, string> = {
-  any: 'Any',
-  minor: 'Small house',
-  fallen: 'Fallen house to rebuild',
-  new: 'New house of my own',
-  cadet: 'Cadet branch',
-  landless: 'Landless adventurer',
-};
-
 export interface InspireOptions {
-  /** What the player enjoys, in their own words. */
-  playstyle?: string;
-  /** Regions, houses or eras already played, to avoid. */
-  played?: string;
-  /** Region id (dynasty group) to stay in, if any. */
-  region?: string;
-  start?: StartKind;
-  /** Free wish for this round, e.g. "something with ships". */
-  wish?: string;
+  /** What the player and the Archmaester talked about, in their own words. */
+  conversation?: string;
   /** Titles of ideas already shown, so new rounds do not repeat them. */
   shown?: string[];
   count?: number;
@@ -96,7 +78,7 @@ const SCHEMA = {
           title: { type: 'string', description: 'short, evocative' },
           canon: { type: 'string', description: '2–3 sentences of canon background for the place, house or event' },
           concept: { type: 'string', description: '2–4 sentences: what the player does in this run and the long-term goal' },
-          fit: { type: 'string', description: "one or two sentences on why it suits the player's playstyle" },
+          fit: { type: 'string', description: "one or two sentences on why it suits what the player asked for" },
           bookmark: { type: 'string', description: 'bookmark key from the list, or "" when a free start year fits better' },
           start_note: { type: 'string', description: 'who and where to start, plus the year if no bookmark is used' },
           region: { type: 'string', description: 'region id from the list' },
@@ -150,7 +132,7 @@ export const cleanWords = (w: string) =>
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
 const strip = (name: string) => name.replace(/^House\s+/i, '').trim().toLowerCase();
 
-function bookmarkLines(catalog: Catalog): string {
+export function bookmarkLines(catalog: Catalog): string {
   const featured = catalog.bookmarks.filter((b) => b.characters.length);
   const lines = featured.map((b) => {
     const chars = b.characters
@@ -164,7 +146,7 @@ function bookmarkLines(catalog: Catalog): string {
   return lines.join('\n') || '(none found)';
 }
 
-function regionLines(catalog: Catalog): string {
+export function regionLines(catalog: Catalog): string {
   const byGroup = new Map<string, string[]>();
   for (const d of catalog.dynasties.values()) {
     if (!catalog.coas.has(d.key)) continue;
@@ -200,12 +182,8 @@ function ruleLines(catalog: Catalog): string {
 export async function inspireRuns(provider: LlmProvider, catalog: Catalog, o: InspireOptions): Promise<InspireResult> {
   const count = o.count ?? 4;
   const wishes = [
-    o.playstyle?.trim() && `What the player enjoys:\n"""${o.playstyle.trim()}"""`,
-    o.played?.trim() && `Already played (suggest something different):\n"""${o.played.trim()}"""`,
-    o.region && `Stay in the region: ${o.region}`,
-    o.start && o.start !== 'any' && `Kind of start: ${START_KINDS[o.start]}`,
-    o.wish?.trim() && `Wish for this round:\n"""${o.wish.trim()}"""`,
-    o.shown?.length && `Ideas already suggested (do not repeat them or close variants): ${o.shown.join('; ')}`,
+    o.conversation?.trim() && `The player's conversation with the Archmaester. Follow what they want and what was settled there, and write the ideas in English whatever language it is in:\n"""${o.conversation.trim()}"""`,
+    o.shown?.length && `Ideas already suggested (do not repeat them or close variants, unless the player asked to rework one): ${o.shown.join('; ')}`,
   ].filter(Boolean);
 
   o.onProgress?.('Thinking up ideas');

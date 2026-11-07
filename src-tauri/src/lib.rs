@@ -187,6 +187,24 @@ fn maester_save(json: String) -> Result<(), String> {
     write_atomic(&maester_file(), &json)
 }
 
+fn citadel_file() -> PathBuf {
+    dirs::data_dir().unwrap_or_default().join("ck3-heraldry-creator/citadel.json")
+}
+
+#[tauri::command]
+fn citadel_load() -> Result<String, String> {
+    match std::fs::read_to_string(citadel_file()) {
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok("[]".into()),
+        Err(e) => Err(format!("cannot read {}: {e}", citadel_file().display())),
+    }
+}
+
+#[tauri::command]
+fn citadel_save(json: String) -> Result<(), String> {
+    write_atomic(&citadel_file(), &json)
+}
+
 #[derive(Serialize)]
 struct SaveFileInfo {
     name: String,
@@ -562,6 +580,8 @@ pub fn run() {
             library_save,
             maester_load,
             maester_save,
+            citadel_load,
+            citadel_save,
             saves_list,
             cache_get,
             cache_set,

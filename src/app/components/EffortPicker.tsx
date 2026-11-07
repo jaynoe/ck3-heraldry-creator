@@ -86,7 +86,7 @@ function EffortInfo({ onClose }: { onClose: () => void }) {
               <td>once, by image</td>
             </tr>
             <tr>
-              <th>Checks canon (Inspiration)</th>
+              <th>Checks canon (Citadel)</th>
               <td>no, only links the AWOIAF articles</td>
               <td>against A Wiki of Ice and Fire</td>
               <td>against A Wiki of Ice and Fire</td>

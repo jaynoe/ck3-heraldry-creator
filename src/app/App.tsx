@@ -16,7 +16,7 @@ import { EditorView } from './components/editor/EditorView.tsx';
 import { ImportPanel } from './components/editor/ImportPanel.tsx';
 import { GenerateView } from './components/GenerateView.tsx';
 import { HousesView } from './components/HousesView.tsx';
-import { InspireView } from './components/InspireView.tsx';
+import { CitadelView } from './components/CitadelView.tsx';
 import { MaesterView } from './components/MaesterView.tsx';
 import type { HouseSeed } from './components/IdeaCard.tsx';
 import { ReportTestLink, TestTag } from './components/TestTag.tsx';
@@ -31,7 +31,7 @@ import { ErrorLine, Icon, Spinner, type IconName } from './components/Icon.tsx';
 import logo from './assets/quartered-small-dark.svg';
 import type { Platform } from './platform/types.ts';
 
-type Tab = 'maester' | 'inspire' | 'generate' | 'editor' | 'houses' | 'library' | 'settings';
+type Tab = 'maester' | 'citadel' | 'generate' | 'editor' | 'houses' | 'library' | 'settings';
 /** Game files are never read automatically; only the button triggers a (slow) scan. */
 type DataStatus = 'checking' | 'missing' | 'scanning' | 'ready';
 
@@ -45,7 +45,7 @@ export function App({ platform }: { platform: Platform }) {
   const [error, setError] = useState<string>();
   const [tab, setTab] = useState<Tab>('generate');
   const [parent, setParent] = useState('');
-  /** An idea handed over from Inspiration; the counter makes the same text count as a new hand-over. */
+  /** An idea handed over from the Citadel; the counter makes the same text count as a new hand-over. */
   const [ideaSeed, setIdeaSeed] = useState<HouseSeed & { n: number }>();
   const [collectionTab, setCollectionTab] = useState<CollectionTab>('arms');
   // The Windows build is not tested yet; say so once, until the user hides the notice.
@@ -256,9 +256,9 @@ export function App({ platform }: { platform: Platform }) {
             <div hidden={tab !== 'maester'} className="fill">
               <MaesterView provider={provider} providerLabel={providerLabel} providerInfo={info} mode={aiMode} onMode={setAiMode} onSettings={() => setTab('settings')} />
             </div>
-            {/* Kept mounted so the ideas survive switching tabs. */}
-            <div hidden={tab !== 'inspire'} className="fill">
-              <InspireView
+            {/* Kept mounted so a running answer and the draft survive switching tabs. */}
+            <div hidden={tab !== 'citadel'} className="fill">
+              <CitadelView
                 provider={provider}
                 providerLabel={providerLabel}
                 providerInfo={info}
@@ -376,7 +376,7 @@ export function App({ platform }: { platform: Platform }) {
 const TABS: [Tab, string, IconName, string?][] = [
   ['generate', 'Generate', 'quill'],
   ['editor', 'Editor', 'dividers'],
-  ['inspire', 'Inspiration', 'scroll', 'Ideas'],
+  ['citadel', 'Citadel', 'scroll'],
   ['maester', 'Maester', 'seal'],
   ['houses', 'AGOT houses', 'keep', 'Houses'],
   ['library', 'Collection', 'shield'],

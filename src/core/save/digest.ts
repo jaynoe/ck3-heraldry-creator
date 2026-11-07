@@ -78,6 +78,7 @@ export interface SaveDigest {
     claims: { name: string; holder?: string; inRealm: boolean; over?: string }[];
   };
   dragons: { name: string; age: number; rider?: string }[];
+  eggs: { name: string; holder?: string; yours: boolean; petrified: boolean }[];
   wars: WarInfo[];
   otherWars: number;
   neighbours: { title: string; ruler: string; house?: string; strength: number; region?: string }[];
@@ -471,6 +472,13 @@ export function buildSaveDigest(save: SaveData, localize: Localize = () => undef
     })
     .sort((a, b) => b.age - a.age);
 
+  // --- dragon eggs, wherever they are; a petrified egg carries another modifier than a live one
+  const eggs = save.entriesContaining('artifacts', 'egg_modifier', 2, 'artifacts').flatMap((id) => {
+    const egg = save.entry('artifacts', id, 2, 'artifacts');
+    const owner = num(egg, 'owner');
+    return [{ name: str(egg, 'name') ?? 'A dragon egg', holder: owner === undefined ? undefined : nameOf(owner), yours: owner === playerId, petrified: (sub(egg, 'modifiers')?.values ?? []).includes('dud_egg_modifier') }];
+  });
+
   // --- wars
   const warIds = save.ids('wars', 2, 'active_wars');
   const wars: WarInfo[] = [];
@@ -601,6 +609,7 @@ export function buildSaveDigest(save: SaveData, localize: Localize = () => undef
       claims,
     },
     dragons,
+    eggs,
     wars,
     otherWars,
     neighbours: agot ? neighbours : neighbours.slice(0, 15),
@@ -622,6 +631,7 @@ const section = (title: string, lines: (string | undefined | false)[]) => {
   return body.length ? `## ${title}\n${body.join('\n')}` : '';
 };
 const list = (items: string[]) => items.map((i) => `- ${i}`);
+const eggs = (items: SaveDigest['eggs']) => items.map((e) => `${e.name}${e.petrified ? ' (petrified)' : ''}${e.yours || !e.holder ? '' : `, held by ${e.holder}`}`).join('; ');
 
 /** The arms of the lord's house as the game shows them, and the frame that gives the shield its shape. */
 export function saveArms(save: SaveData): { script: string; frame?: string } | undefined {
@@ -681,6 +691,10 @@ export function digestToText(d: SaveDigest): string {
       d.relations.lovers.length > 0 && `Lovers: ${d.relations.lovers.join(', ')}`,
       d.relations.allies.length > 0 && `Allies: ${d.relations.allies.join(', ')}`,
       d.relations.truces.length > 0 && `Truces, which forbid attacking until they end: ${d.relations.truces.map((t) => `${t.name} until ${formatDate(t.until)}${t.war ? ` (${t.war})` : ''}`).join('; ')}`,
+    ]),
+    section('Dragon eggs', [
+      eggs(d.eggs.filter((e) => e.yours)) && `Held by your lord: ${eggs(d.eggs.filter((e) => e.yours))}`,
+      eggs(d.eggs.filter((e) => !e.yours)) && `Elsewhere: ${eggs(d.eggs.filter((e) => !e.yours))}`,
     ]),
     section('Dragons of the realm', list(d.dragons.map((x) => `${x.name}, age ${x.age}, ${x.rider ? `ridden by ${x.rider}` : 'no rider'}`))),
     section('Realm', [

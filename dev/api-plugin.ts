@@ -16,6 +16,7 @@ import { fetchWikiQuery } from '../src/core/ai/canon.ts';
 const wikiQuery = fetchWikiQuery((url, init) => fetch(url, init));
 
 const maesterFile = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'ck3-heraldry-creator', 'maester.json');
+const citadelFile = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'ck3-heraldry-creator', 'citadel.json');
 const libraryFile = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'ck3-heraldry-creator', 'library.json');
 const cacheDir = join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ck3-heraldry-creator');
 
@@ -234,18 +235,19 @@ export function devApi(): Plugin {
             return json(res, saves.sort((a, b) => b.modified - a.modified));
           }
 
-          if (url.pathname === '/maester') {
+          if (url.pathname === '/maester' || url.pathname === '/citadel') {
+            const file = url.pathname === '/maester' ? maesterFile : citadelFile;
             if (req.method === 'GET') {
               try {
                 res.setHeader('Content-Type', 'application/json');
-                return res.end(await readFile(maesterFile));
+                return res.end(await readFile(file));
               } catch (e) {
                 if ((e as NodeJS.ErrnoException).code === 'ENOENT') return res.end('[]');
                 throw e;
               }
             }
             if (req.method === 'PUT') {
-              await writeAtomic(maesterFile, await body(req));
+              await writeAtomic(file, await body(req));
               return json(res, { ok: true });
             }
           }
